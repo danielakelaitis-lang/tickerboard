@@ -1,0 +1,31 @@
+name: Deploy release to Render
+
+# Runs when you publish a release on GitHub (or press "Run workflow" on the Actions tab).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the server code has no syntax errors
+        run: python -m py_compile server.py
+
+      - name: Tell Render to deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::Add your Render deploy hook URL as a repository secret named RENDER_DEPLOY_HOOK"
+            exit 1
+          fi
+          curl -fsS -X POST "$HOOK"
+          echo "Render deploy started for ${GITHUB_REF_NAME}"
