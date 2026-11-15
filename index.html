@@ -1,0 +1,1204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tickerboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+/* Layout: terminal-style split — watchlist rail on the left, chart stack + stats + scorecard on the right */
+:root{
+  --bg:#eef1f6; --surface:#ffffff; --surface-2:#f6f8fb; --ink:#0f1b2d; --muted:#5b6b80; --line:#dde3ea;
+  --accent:#2b59c3; --accent-soft:#e3eafb; --up:#0d9468; --up-soft:#dcf4ea; --down:#d23f58; --down-soft:#fbe3e7;
+  --warn:#b97b07; --warn-soft:#fbefd6;
+  --c-sma20:#e08a1e; --c-sma50:#2b59c3; --c-sma200:#9443c6; --c-ema:#0f9fb3; --c-bb:#8796ab;
+  --f-display:"Manrope",system-ui,sans-serif; --f-body:"Inter",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0a1019; --surface:#111925; --surface-2:#162030; --ink:#e4ebf5; --muted:#8a9bb2; --line:#22304a;
+  --accent:#7299ff; --accent-soft:#1b2a4a; --up:#2cc596; --up-soft:#0f2e27; --down:#ff6b82; --down-soft:#3a1720;
+  --warn:#e8b54b; --warn-soft:#352a12;
+  --c-sma20:#f2a646; --c-sma50:#7299ff; --c-sma200:#c27cf0; --c-ema:#37c6d8; --c-bb:#6c7d96; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0a1019; --surface:#111925; --surface-2:#162030; --ink:#e4ebf5; --muted:#8a9bb2; --line:#22304a;
+  --accent:#7299ff; --accent-soft:#1b2a4a; --up:#2cc596; --up-soft:#0f2e27; --down:#ff6b82; --down-soft:#3a1720;
+  --warn:#e8b54b; --warn-soft:#352a12;
+  --c-sma20:#f2a646; --c-sma50:#7299ff; --c-sma200:#c27cf0; --c-ema:#37c6d8; --c-bb:#6c7d96; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)} .muted{color:var(--muted)}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:16px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{font:800 18px/1 var(--f-display);letter-spacing:-.02em;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand i{display:inline-block;width:18px;height:18px;border-radius:4px;background:linear-gradient(135deg,var(--up) 0 50%,var(--accent) 50%)}
+.search{position:relative;flex:1;max-width:460px}
+.search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgb(0 0 0 / .15);overflow:hidden}
+.results button{display:flex;gap:10px;width:100%;text-align:left;padding:8px 12px;border:0;background:none;cursor:pointer;align-items:baseline}
+.results button:hover,.results button.sel{background:var(--accent-soft)}
+.results b{font-family:var(--f-mono);min-width:72px}
+.results small{margin-left:auto;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.top .spacer{flex:1}
+.iconbtn{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:7px 10px;cursor:pointer;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+
+/* shell */
+.shell{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1500px;margin:0 auto}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.panel-h h2,.panel-h h3{margin:0;font:700 13px/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+
+/* watchlist */
+.watch{align-self:start;position:sticky;top:72px}
+.wl{list-style:none;margin:0;padding:4px}
+.wl li{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;position:relative}
+.wl li:hover{background:var(--surface-2)} .wl li.on{background:var(--accent-soft)}
+.wl .sym{font:600 13px var(--f-mono)} .wl .nm{grid-column:1;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl .px{text-align:right;font:500 13px var(--f-mono)} .wl .ch{text-align:right;font:500 11px var(--f-mono)}
+.wl svg{position:absolute;right:92px;top:12px;opacity:.9}
+.wl .rm{position:absolute;right:-2px;top:-2px;border:0;background:var(--surface);color:var(--muted);border-radius:50%;width:18px;height:18px;line-height:16px;font-size:13px;cursor:pointer;display:none}
+.wl li:hover .rm{display:block}
+.wl-empty{padding:14px;color:var(--muted);font-size:13px}
+
+/* hero quote */
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.quote{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 28px;padding:16px 18px}
+.quote h1{margin:0;font:800 26px/1.15 var(--f-display);letter-spacing:-.02em;text-wrap:balance}
+.quote .sub{color:var(--muted);font-size:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.quote .price{font:600 34px/1 var(--f-mono);letter-spacing:-.02em}
+.quote .chg{font:500 15px var(--f-mono);margin-top:6px}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font:600 10px/1.6 var(--f-body);text-transform:uppercase;letter-spacing:.07em;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.pill.live{background:var(--up-soft);color:var(--up);border-color:transparent}
+.star{margin-left:auto;align-self:center}
+.star.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+/* chart */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:none;padding:5px 10px;cursor:pointer;font:500 12px var(--f-mono);color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:12px;cursor:pointer;background:none;color:var(--muted)}
+.chip i{width:10px;height:3px;border-radius:2px;background:currentColor}
+.chip.on{color:var(--ink);border-color:var(--ink)}
+.chartwrap{position:relative}
+#c-main{height:420px} #c-rsi{height:120px} #c-macd{height:130px}
+.pane-label{position:absolute;left:12px;top:6px;z-index:3;font:500 11px var(--f-mono);color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 80%,transparent);padding:1px 4px;border-radius:4px}
+.legend{position:absolute;left:12px;top:8px;z-index:3;font:12px var(--f-mono);pointer-events:none;display:flex;flex-wrap:wrap;gap:4px 12px;max-width:calc(100% - 90px)}
+.legend span b{color:var(--muted);font-weight:400;margin-right:3px}
+.sub-pane{border-top:1px solid var(--line)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);background:color-mix(in srgb,var(--surface) 70%,transparent);z-index:5}
+
+/* stats */
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0}
+.stat{padding:10px 14px;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+.stat dt{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stat dd{margin:2px 0 0;font:500 15px var(--f-mono)}
+.perf{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));padding:4px}
+.perf div{padding:10px;text-align:center}
+.perf dt{font:500 11px var(--f-mono);color:var(--muted)}
+.perf dd{margin:4px 0 0;font:600 14px var(--f-mono);border-radius:5px;padding:3px 0}
+.perf dd.up{background:var(--up-soft)} .perf dd.down{background:var(--down-soft)}
+.range52{padding:14px}
+.bar52{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--down),var(--warn),var(--up));margin:8px 0 6px}
+.bar52 i{position:absolute;top:-5px;width:4px;height:16px;border-radius:2px;background:var(--ink);transform:translateX(-50%)}
+.row-sb{display:flex;justify-content:space-between;font:12px var(--f-mono);color:var(--muted)}
+
+/* scorecard */
+.score-top{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;padding:16px}
+.gauge{position:relative;width:132px;height:132px}
+.gauge svg{transform:rotate(-90deg)}
+.gauge .g-in{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.gauge .g-num{font:700 34px/1 var(--f-mono)}
+.gauge .g-of{font-size:11px;color:var(--muted)}
+.verdict{font:800 22px/1.1 var(--f-display);margin:0 0 4px}
+.subscores{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0}
+.subscores div{min-width:130px}
+.subscores label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.meter{height:6px;border-radius:3px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden;margin-top:4px}
+.meter i{display:block;height:100%;border-radius:3px}
+.summary{font-size:13.5px;color:var(--ink);max-width:70ch;margin:0}
+.factors{list-style:none;margin:0;padding:0 8px 8px}
+.factors h4{margin:14px 8px 6px;font:700 11px var(--f-display);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.factors li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;padding:7px 8px;border-radius:6px;align-items:start}
+.factors li:nth-child(odd){background:var(--surface-2)}
+.mark{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--f-mono)}
+.mark.pos{background:var(--up-soft);color:var(--up)} .mark.neg{background:var(--down-soft);color:var(--down)} .mark.neu{background:var(--surface);color:var(--muted);border:1px solid var(--line)}
+.factors .fl{font-weight:600;font-size:13px} .factors .fd{font-size:12px;color:var(--muted)}
+.factors .pts{font:600 12px var(--f-mono)}
+.disclaimer{font-size:11.5px;color:var(--muted);padding:10px 16px 14px;border-top:1px solid var(--line)}
+
+/* analysts + profile */
+.reco{padding:14px}
+.stack{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:8px 0}
+.stack i{display:block;height:100%}
+.reco-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.reco-legend span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:var(--c)}
+.target{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;text-align:center}
+.target dt{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.target dd{margin:2px 0 0;font:600 15px var(--f-mono)}
+.profile{padding:14px;font-size:13px}
+.profile p{margin:8px 0 0;max-width:75ch;color:var(--muted)}
+.profile .facts{display:flex;flex-wrap:wrap;gap:6px}
+.profile a{color:var(--accent)}
+.linkbtn{border:0;background:none;color:var(--accent);cursor:pointer;padding:0;font-size:12px}
+.err{padding:40px 20px;text-align:center;color:var(--muted)}
+.err b{display:block;color:var(--ink);font:700 18px var(--f-display);margin-bottom:6px}
+footer{text-align:center;color:var(--muted);font-size:11.5px;padding:0 16px 24px}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;margin-top:-6px}
+.tabs button{border:0;background:none;padding:10px 16px;font:700 14px var(--f-display);color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpane{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* svg chart cards */
+.cards4{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.cards4 .err{grid-column:1/-1}
+.ccard{padding:14px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.ccard h4{margin:0 0 4px;font:700 13px var(--f-display)}
+.lg{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:6px}
+.lg span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;background:var(--c);vertical-align:-1px}
+.svgc{width:100%;height:auto;display:block;overflow:visible}
+.svgc text{fill:var(--muted);font:10px var(--f-mono)}
+.nodata{padding:40px 0;text-align:center;font-size:12px}
+
+/* statement + chain tables */
+.tablewrap{overflow-x:auto}
+table.ft{border-collapse:collapse;width:100%;font-size:13px;min-width:560px}
+.ft th,.ft td{padding:7px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.ft th:first-child,.ft td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+.ft thead th{font:600 11px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.ft td{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.ft td:first-child{font-family:var(--f-body)}
+.ft tr.key td{font-weight:600}
+.ft tr.derived td{color:var(--muted);font-style:italic}
+.ft tbody tr:hover td{background:var(--surface-2)}
+table.chain{min-width:820px}
+.chain th,.chain td{text-align:center}
+.chain th.side{font:700 12px var(--f-display);color:var(--ink);letter-spacing:.06em}
+.chain td.itm{background:var(--accent-soft)}
+.chain td.k{font-weight:700;background:var(--surface-2)}
+.chain tr.spot td{border-top:2px solid var(--accent)}
+.chain td.iv{color:var(--accent)}
+select{background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font:500 12px var(--f-mono);color:var(--ink)}
+.ivread{list-style:none;margin:0;padding:12px 16px 16px;display:grid;gap:8px;font-size:13.5px;max-width:95ch}
+.ivread li{padding-left:16px;position:relative}
+.ivread li::before{content:"";position:absolute;left:2px;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+/* news */
+.news{list-style:none;margin:0;padding:0}
+.news li{display:grid;grid-template-columns:128px minmax(0,1fr);gap:16px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.news li:last-child{border-bottom:0}
+.news .thumb{width:128px;height:84px;object-fit:cover;border-radius:6px;background:var(--surface-2);display:block}
+.news a.t{color:var(--ink);font:700 15px/1.35 var(--f-display);text-decoration:none;text-wrap:pretty}
+.news a.t:hover{color:var(--accent);text-decoration:underline}
+.news .meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px;font-size:12px;color:var(--muted)}
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font:600 10.5px/1.6 var(--f-body);text-transform:uppercase;letter-spacing:.05em}
+.tag.pos{background:var(--up-soft);color:var(--up)} .tag.neg{background:var(--down-soft);color:var(--down)} .tag.neu{background:var(--surface-2);color:var(--muted)}
+.tk{border:1px solid var(--line);background:none;border-radius:4px;padding:0 6px;font:500 11px var(--f-mono);color:var(--accent);cursor:pointer}
+.tk:hover{border-color:var(--accent)}
+.mood{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px}
+.mood .stack{height:10px;margin:8px 0 0;max-width:420px}
+
+@media (max-width:1100px){.grid2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.news li{grid-template-columns:1fr}.news .thumb{width:100%;height:160px}}
+@media (max-width:820px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .watch{position:static}
+  .wl{display:flex;overflow-x:auto;gap:4px}
+  .wl li{min-width:150px}
+  .wl svg{display:none}
+  .brand span,#updated,.top .spacer{display:none}
+  #c-main{height:320px}
+  .score-top{grid-template-columns:1fr;justify-items:start}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="brand"><i aria-hidden="true"></i><span>Tickerboard</span></div>
+  <div class="search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Search any stock, ETF or crypto (AAPL, Tesla, BTC-USD…)" autocomplete="off" aria-label="Search symbols">
+    <div class="results" id="results" hidden></div>
+  </div>
+  <div class="spacer"></div>
+  <span class="muted" id="updated" style="font-size:12px"></span>
+  <button class="iconbtn" id="theme" title="Switch light / dark">◐ Theme</button>
+</div></header>
+
+<div class="shell">
+  <aside class="panel watch">
+    <div class="panel-h"><h2>Watchlist</h2><span class="muted" style="font-size:11px">refreshes every 60s</span></div>
+    <ul class="wl" id="wl"></ul>
+  </aside>
+
+  <main class="main" id="main">
+    <section class="panel quote" id="quote">
+      <div>
+        <h1 id="q-name">Loading…</h1>
+        <div class="sub" id="q-sub"></div>
+      </div>
+      <div>
+        <div class="price num" id="q-price">—</div>
+        <div class="chg" id="q-chg"></div>
+      </div>
+      <button class="iconbtn star" id="star">☆ Add to watchlist</button>
+    </section>
+
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Sections">
+      <button data-tab="overview" class="on" role="tab">Overview</button>
+      <button data-tab="financials" role="tab">Financials</button>
+      <button data-tab="options" role="tab">Options &amp; IV</button>
+      <button data-tab="news" role="tab">News</button>
+    </nav>
+
+    <div id="tab-overview" class="tabpane">
+
+    <section class="panel">
+      <div class="toolbar">
+        <div class="seg" id="ranges" role="group" aria-label="Time range">
+          <button data-r="1D">1D</button><button data-r="5D">5D</button><button data-r="1M">1M</button><button data-r="3M">3M</button><button data-r="6M">6M</button><button data-r="YTD">YTD</button><button data-r="1Y" class="on">1Y</button><button data-r="5Y">5Y</button>
+        </div>
+        <div class="seg" id="ctype" role="group" aria-label="Chart type">
+          <button data-t="candle" class="on">Candles</button><button data-t="line">Line</button>
+        </div>
+        <div class="chips" id="inds">
+          <button class="chip on" data-i="sma20" style="--c:var(--c-sma20)"><i style="background:var(--c-sma20)"></i>SMA 20</button>
+          <button class="chip on" data-i="sma50"><i style="background:var(--c-sma50)"></i>SMA 50</button>
+          <button class="chip on" data-i="sma200"><i style="background:var(--c-sma200)"></i>SMA 200</button>
+          <button class="chip" data-i="ema21"><i style="background:var(--c-ema)"></i>EMA 21</button>
+          <button class="chip" data-i="bb"><i style="background:var(--c-bb)"></i>Bollinger</button>
+          <button class="chip on" data-i="vol"><i style="background:var(--muted)"></i>Volume</button>
+          <button class="chip on" data-i="rsi"><i style="background:var(--accent)"></i>RSI</button>
+          <button class="chip on" data-i="macd"><i style="background:var(--accent)"></i>MACD</button>
+        </div>
+      </div>
+      <div class="chartwrap">
+        <div class="legend" id="legend"></div>
+        <div id="c-main"></div>
+        <div class="loading" id="loading">Loading chart…</div>
+      </div>
+      <div class="chartwrap sub-pane" id="p-rsi"><div class="pane-label" id="l-rsi">RSI 14</div><div id="c-rsi"></div></div>
+      <div class="chartwrap sub-pane" id="p-macd"><div class="pane-label" id="l-macd">MACD 12 26 9</div><div id="c-macd"></div></div>
+    </section>
+
+    <div class="grid2">
+      <section class="panel" id="scorecard">
+        <div class="panel-h"><h2>Analysis scorecard</h2><span class="muted" style="font-size:11px">rule-based, from live data</span></div>
+        <div id="score-body"><div class="err">Crunching numbers…</div></div>
+      </section>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <section class="panel">
+          <div class="panel-h"><h3>Performance</h3></div>
+          <dl class="perf" id="perf"></dl>
+          <div class="range52" id="r52"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h3>Technicals</h3></div>
+          <dl class="stats" id="tech"></dl>
+        </section>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="panel-h"><h3>Key statistics</h3></div>
+      <dl class="stats" id="stats"></dl>
+    </section>
+
+    <div class="grid2">
+      <section class="panel"><div class="panel-h"><h3>Analyst view</h3></div><div class="reco" id="reco"></div></section>
+      <section class="panel"><div class="panel-h"><h3>Company</h3></div><div class="profile" id="profile"></div></section>
+    </div>
+    </div>
+
+    <div id="tab-financials" class="tabpane" hidden>
+      <section class="panel">
+        <div class="toolbar">
+          <div class="seg" id="fin-freq" role="group" aria-label="Reporting period"><button data-f="annual" class="on">Annual</button><button data-f="quarterly">Quarterly</button></div>
+          <span class="muted" style="font-size:12px" id="fin-note"></span>
+        </div>
+        <div class="cards4" id="fin-charts"></div>
+      </section>
+      <section class="panel"><div class="panel-h"><h3>Income statement</h3></div><div class="tablewrap" id="fin-income"></div></section>
+      <section class="panel"><div class="panel-h"><h3>Balance sheet</h3></div><div class="tablewrap" id="fin-balance"></div></section>
+      <section class="panel"><div class="panel-h"><h3>Cash flow</h3></div><div class="tablewrap" id="fin-cashflow"></div></section>
+    </div>
+
+    <div id="tab-options" class="tabpane" hidden></div>
+
+    <div id="tab-news" class="tabpane" hidden>
+      <section class="panel">
+        <div class="panel-h"><h3>Latest headlines</h3><span class="muted" style="font-size:11px">mood tags come from keywords in the headline</span></div>
+        <div id="news-mood"></div>
+        <ul class="news" id="news"></ul>
+      </section>
+    </div>
+  </main>
+</div>
+<footer>Data from Yahoo Finance via the local server, may be delayed up to 15 minutes. The scorecard is an automatic rule-based summary for learning and research, not financial advice.</footer>
+
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+};
+const raw = o => (o && typeof o === "object") ? (o.raw ?? null) : (typeof o === "number" ? o : null);
+const isNum = n => typeof n === "number" && isFinite(n);
+function fmt(n, d=2){ return isNum(n) ? n.toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}) : "—"; }
+function big(n){ if(!isNum(n)) return "—"; const a=Math.abs(n);
+  if(a>=1e12) return (n/1e12).toFixed(2)+"T"; if(a>=1e9) return (n/1e9).toFixed(2)+"B";
+  if(a>=1e6) return (n/1e6).toFixed(2)+"M"; if(a>=1e3) return (n/1e3).toFixed(1)+"K"; return n.toFixed(0); }
+function pct(n, d=2, sign=true){ return isNum(n) ? (sign && n>0?"+":"")+(n*100).toFixed(d)+"%" : "—"; }
+const cls = n => isNum(n) ? (n>0?"up":n<0?"down":"") : "";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+async function api(path){
+  const r = await fetch(path);
+  const j = await r.json().catch(()=>({error:"Bad response from server"}));
+  if(!r.ok || j.error) throw new Error(j.error || ("HTTP "+r.status));
+  return j;
+}
+
+/* ---------- indicators ---------- */
+function sma(v, n){ const o=Array(v.length).fill(null); let s=0;
+  for(let i=0;i<v.length;i++){ s+=v[i]; if(i>=n) s-=v[i-n]; if(i>=n-1) o[i]=s/n; } return o; }
+function ema(v, n, start=0){ const o=Array(v.length).fill(null); const k=2/(n+1); let prev=null, s=0, c=0;
+  for(let i=start;i<v.length;i++){ if(v[i]==null) continue;
+    if(prev==null){ s+=v[i]; c++; if(c===n){ prev=s/n; o[i]=prev; } }
+    else { prev=v[i]*k+prev*(1-k); o[i]=prev; } } return o; }
+function stdev(v, n, m){ return v.map((_,i)=>{ if(m[i]==null) return null; let s=0; for(let j=i-n+1;j<=i;j++) s+=(v[j]-m[i])**2; return Math.sqrt(s/n); }); }
+function rsi(v, n=14){ const o=Array(v.length).fill(null); let g=0,l=0;
+  for(let i=1;i<v.length;i++){ const d=v[i]-v[i-1], up=Math.max(d,0), dn=Math.max(-d,0);
+    if(i<=n){ g+=up; l+=dn; if(i===n){ g/=n; l/=n; o[i]=l===0?100:100-100/(1+g/l); } }
+    else { g=(g*(n-1)+up)/n; l=(l*(n-1)+dn)/n; o[i]=l===0?100:100-100/(1+g/l); } } return o; }
+function macd(v){ const e12=ema(v,12), e26=ema(v,26); const m=v.map((_,i)=>e12[i]!=null&&e26[i]!=null?e12[i]-e26[i]:null);
+  const first=m.findIndex(x=>x!=null); const sig=ema(m.map(x=>x??0),9,first<0?v.length:first);
+  return {m, sig, hist:m.map((x,i)=>x!=null&&sig[i]!=null?x-sig[i]:null)}; }
+function atr(h,l,c,n=14){ const tr=c.map((_,i)=>i?Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])):h[i]-l[i]);
+  const o=Array(c.length).fill(null); let a=null; for(let i=0;i<c.length;i++){ if(i===n-1){ a=tr.slice(0,n).reduce((x,y)=>x+y,0)/n; o[i]=a; } else if(i>=n){ a=(a*(n-1)+tr[i])/n; o[i]=a; } } return o; }
+
+/* ---------- state ---------- */
+const DEFAULT_WL = ["AAPL","MSFT","NVDA","GOOGL","AMZN","TSLA","META","SPY"];
+let watch = store.get("tb.watch", DEFAULT_WL);
+let state = { symbol: store.get("tb.last","AAPL"), range: store.get("tb.range","1Y"), ctype:"candle",
+  inds: store.get("tb.inds", {sma20:true,sma50:true,sma200:true,ema21:false,bb:false,vol:true,rsi:true,macd:true}),
+  daily:null, intraday:null, summary:null, loadId:0 };
+
+/* ---------- charts ---------- */
+const LC = window.LightweightCharts;
+let charts = {}, series = {};
+function chartOpts(h){
+  return { autoSize:true, height:h,
+    layout:{ background:{type:"solid", color:cssVar("--surface")}, textColor:cssVar("--muted"), fontFamily:"IBM Plex Mono, monospace", fontSize:11 },
+    grid:{ vertLines:{color:cssVar("--line")+"80"}, horzLines:{color:cssVar("--line")+"80"} },
+    rightPriceScale:{ borderColor:cssVar("--line"), minimumWidth:70 },
+    timeScale:{ borderColor:cssVar("--line"), rightOffset:4, timeVisible:false },
+    crosshair:{ mode:0 } };
+}
+function buildCharts(){
+  if(!LC){ $("#loading").textContent = "Chart library failed to load. Check your internet connection and reload."; return; }
+  charts.main = LC.createChart($("#c-main"), chartOpts(420));
+  charts.rsi = LC.createChart($("#c-rsi"), {...chartOpts(120), timeScale:{visible:false}});
+  charts.macd = LC.createChart($("#c-macd"), chartOpts(130));
+  const up=cssVar("--up"), dn=cssVar("--down");
+  series.candle = charts.main.addCandlestickSeries({upColor:up, downColor:dn, borderUpColor:up, borderDownColor:dn, wickUpColor:up, wickDownColor:dn, priceLineVisible:true});
+  series.line = charts.main.addAreaSeries({lineColor:cssVar("--accent"), topColor:cssVar("--accent")+"40", bottomColor:cssVar("--accent")+"00", lineWidth:2, visible:false});
+  series.vol = charts.main.addHistogramSeries({priceScaleId:"vol", priceFormat:{type:"volume"}, lastValueVisible:false, priceLineVisible:false});
+  charts.main.priceScale("vol").applyOptions({scaleMargins:{top:.82,bottom:0}});
+  const line = (c, color, w=1.5, extra={}) => c.addLineSeries({color, lineWidth:w, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false, ...extra});
+  series.sma20 = line(charts.main, cssVar("--c-sma20"));
+  series.sma50 = line(charts.main, cssVar("--c-sma50"));
+  series.sma200 = line(charts.main, cssVar("--c-sma200"), 2);
+  series.ema21 = line(charts.main, cssVar("--c-ema"));
+  series.bbU = line(charts.main, cssVar("--c-bb"), 1, {lineStyle:2});
+  series.bbM = line(charts.main, cssVar("--c-bb"), 1, {lineStyle:1});
+  series.bbL = line(charts.main, cssVar("--c-bb"), 1, {lineStyle:2});
+  series.rsi = line(charts.rsi, cssVar("--accent"), 1.5, {lastValueVisible:true, autoscaleInfoProvider:()=>({priceRange:{minValue:0,maxValue:100}})});
+  series.rsi.createPriceLine({price:70, color:cssVar("--down"), lineWidth:1, lineStyle:2, axisLabelVisible:false});
+  series.rsi.createPriceLine({price:30, color:cssVar("--up"), lineWidth:1, lineStyle:2, axisLabelVisible:false});
+  charts.rsi.priceScale("right").applyOptions({scaleMargins:{top:.08,bottom:.08}});
+  series.hist = charts.macd.addHistogramSeries({priceLineVisible:false, lastValueVisible:false});
+  series.macd = line(charts.macd, cssVar("--accent"), 1.5, {lastValueVisible:true});
+  series.sig = line(charts.macd, cssVar("--c-sma20"), 1.5, {lastValueVisible:true});
+
+  // keep all three panes scrolled together
+  let syncing = false;
+  const all = [charts.main, charts.rsi, charts.macd];
+  all.forEach(src => src.timeScale().subscribeVisibleLogicalRangeChange(r => {
+    if(syncing || !r) return; syncing = true;
+    all.forEach(dst => { if(dst !== src) dst.timeScale().setVisibleLogicalRange(r); });
+    syncing = false;
+  }));
+  charts.main.subscribeCrosshairMove(p => updateLegend(p && p.time != null ? p.time : null));
+}
+function retheme(){
+  if(!charts.main) return;
+  Object.entries(charts).forEach(([k,c]) => c.applyOptions({ layout:{background:{type:"solid",color:cssVar("--surface")}, textColor:cssVar("--muted")},
+    grid:{ vertLines:{color:cssVar("--line")+"80"}, horzLines:{color:cssVar("--line")+"80"} },
+    rightPriceScale:{borderColor:cssVar("--line")}, timeScale:{borderColor:cssVar("--line")} }));
+  const up=cssVar("--up"), dn=cssVar("--down");
+  series.candle.applyOptions({upColor:up, downColor:dn, borderUpColor:up, borderDownColor:dn, wickUpColor:up, wickDownColor:dn});
+  series.line.applyOptions({lineColor:cssVar("--accent"), topColor:cssVar("--accent")+"40", bottomColor:cssVar("--accent")+"00"});
+  series.sma20.applyOptions({color:cssVar("--c-sma20")}); series.sma50.applyOptions({color:cssVar("--c-sma50")});
+  series.sma200.applyOptions({color:cssVar("--c-sma200")}); series.ema21.applyOptions({color:cssVar("--c-ema")});
+  ["bbU","bbM","bbL"].forEach(k=>series[k].applyOptions({color:cssVar("--c-bb")}));
+  series.rsi.applyOptions({color:cssVar("--accent")}); series.macd.applyOptions({color:cssVar("--accent")}); series.sig.applyOptions({color:cssVar("--c-sma20")});
+  renderChart(false);
+}
+
+/* ---------- data shaping ---------- */
+function parseChart(j){
+  const r = j.chart?.result?.[0]; if(!r || !r.timestamp) throw new Error("No price history for this symbol");
+  const q = r.indicators.quote[0], off = r.meta.gmtoffset || 0, rows = [];
+  r.timestamp.forEach((t,i) => { if(q.close[i]==null || q.open[i]==null) return;
+    rows.push({t:t+off, o:q.open[i], h:q.high[i], l:q.low[i], c:q.close[i], v:q.volume[i]||0}); });
+  const c = rows.map(x=>x.c), h = rows.map(x=>x.h), l = rows.map(x=>x.l);
+  const s20=sma(c,20), sd=stdev(c,20,s20), mc=macd(c);
+  return { meta:r.meta, rows, c,
+    sma20:s20, sma50:sma(c,50), sma200:sma(c,200), ema21:ema(c,21),
+    bbU:s20.map((m,i)=>m==null?null:m+2*sd[i]), bbL:s20.map((m,i)=>m==null?null:m-2*sd[i]),
+    rsi:rsi(c), macd:mc.m, sig:mc.sig, hist:mc.hist, atr:atr(h,l,c) };
+}
+const pts = (d, arr) => d.rows.map((r,i) => arr[i]==null ? {time:r.t} : {time:r.t, value:arr[i]});
+
+/* ---------- rendering: chart ---------- */
+function activeData(){ return (state.range==="1D"||state.range==="5D") ? state.intraday : state.daily; }
+function renderChart(fit=true){
+  const d = activeData(); if(!d || !charts.main) return;
+  const intraday = d === state.intraday;
+  [charts.main, charts.macd].forEach(c => c.applyOptions({timeScale:{timeVisible:intraday, secondsVisible:false}}));
+  const up=cssVar("--up"), dn=cssVar("--down");
+  series.candle.setData(d.rows.map(r=>({time:r.t, open:r.o, high:r.h, low:r.l, close:r.c})));
+  series.line.setData(d.rows.map(r=>({time:r.t, value:r.c})));
+  series.vol.setData(d.rows.map((r,i)=>({time:r.t, value:r.v, color:(r.c>=(i?d.rows[i-1].c:r.o)?up:dn)+"55"})));
+  ["sma20","sma50","sma200","ema21"].forEach(k=>series[k].setData(pts(d,d[k])));
+  series.bbU.setData(pts(d,d.bbU)); series.bbM.setData(pts(d,d.sma20)); series.bbL.setData(pts(d,d.bbL));
+  series.rsi.setData(pts(d,d.rsi));
+  series.macd.setData(pts(d,d.macd)); series.sig.setData(pts(d,d.sig));
+  series.hist.setData(d.rows.map((r,i)=>d.hist[i]==null?{time:r.t}:{time:r.t, value:d.hist[i], color:(d.hist[i]>=0?up:dn)+"aa"}));
+  applyToggles();
+  if(fit) setRange();
+  updateLegend(null);
+}
+function applyToggles(){
+  if(!series.candle) return;
+  const I = state.inds;
+  series.candle.applyOptions({visible:state.ctype==="candle"});
+  series.line.applyOptions({visible:state.ctype==="line"});
+  ["sma20","sma50","sma200","ema21","vol"].forEach(k=>series[k].applyOptions({visible:!!I[k]}));
+  ["bbU","bbM","bbL"].forEach(k=>series[k].applyOptions({visible:!!I.bb}));
+  $("#p-rsi").hidden = !I.rsi; $("#p-macd").hidden = !I.macd;
+  document.querySelectorAll("#inds .chip").forEach(b=>b.classList.toggle("on", !!I[b.dataset.i]));
+}
+function setRange(){
+  const d = activeData(); if(!d || !d.rows.length) return;
+  const last = d.rows[d.rows.length-1].t;
+  if(state.range==="1D"||state.range==="5D"){ charts.main.timeScale().fitContent(); syncAll(); return; }
+  const dt = new Date(last*1000); let from;
+  const back = (m)=>{ const x=new Date(dt); x.setUTCMonth(x.getUTCMonth()-m); return x.getTime()/1000; };
+  switch(state.range){ case "1M":from=back(1);break; case "3M":from=back(3);break; case "6M":from=back(6);break;
+    case "YTD":from=Date.UTC(dt.getUTCFullYear(),0,1)/1000;break; case "1Y":from=back(12);break; default:from=d.rows[0].t; }
+  const idx = Math.max(0, d.rows.findIndex(r=>r.t>=from));
+  charts.main.timeScale().setVisibleLogicalRange({from:idx, to:d.rows.length-1+4});
+  syncAll();
+}
+function syncAll(){ const r = charts.main.timeScale().getVisibleLogicalRange(); if(r){ charts.rsi.timeScale().setVisibleLogicalRange(r); charts.macd.timeScale().setVisibleLogicalRange(r); } }
+function updateLegend(time){
+  const d = activeData(); if(!d) return;
+  let i = time==null ? d.rows.length-1 : d.rows.findIndex(r=>r.t===time); if(i<0) return;
+  const r = d.rows[i], prev = i ? d.rows[i-1].c : r.o, ch = r.c/prev-1;
+  const date = new Date(r.t*1000), intr = d===state.intraday;
+  const ds = date.toLocaleDateString(undefined,{timeZone:"UTC",month:"short",day:"numeric",year:intr?undefined:"numeric"}) + (intr? " "+date.toLocaleTimeString(undefined,{timeZone:"UTC",hour:"2-digit",minute:"2-digit"}):"");
+  const I = state.inds, f = v => fmt(v);
+  let h = `<span class="muted">${ds}</span><span><b>O</b>${f(r.o)}</span><span><b>H</b>${f(r.h)}</span><span><b>L</b>${f(r.l)}</span><span><b>C</b>${f(r.c)}</span><span class="${cls(ch)}">${pct(ch)}</span><span><b>Vol</b>${big(r.v)}</span>`;
+  if(I.sma20 && d.sma20[i]!=null) h += `<span style="color:var(--c-sma20)"><b>SMA20</b>${f(d.sma20[i])}</span>`;
+  if(I.sma50 && d.sma50[i]!=null) h += `<span style="color:var(--c-sma50)"><b>SMA50</b>${f(d.sma50[i])}</span>`;
+  if(I.sma200 && d.sma200[i]!=null) h += `<span style="color:var(--c-sma200)"><b>SMA200</b>${f(d.sma200[i])}</span>`;
+  if(I.ema21 && d.ema21[i]!=null) h += `<span style="color:var(--c-ema)"><b>EMA21</b>${f(d.ema21[i])}</span>`;
+  $("#legend").innerHTML = h;
+  $("#l-rsi").textContent = "RSI 14  " + (d.rsi[i]!=null ? d.rsi[i].toFixed(1) : "—");
+  $("#l-macd").textContent = "MACD 12 26 9  " + (d.macd[i]!=null ? `${d.macd[i].toFixed(2)} / ${d.sig[i]!=null?d.sig[i].toFixed(2):"—"}` : "—");
+}
+
+/* ---------- rendering: header, stats ---------- */
+function renderQuote(){
+  const d = state.daily, s = state.summary, m = d.meta, p = s?.price || {};
+  const price = raw(p.regularMarketPrice) ?? m.regularMarketPrice;
+  const prev = raw(p.regularMarketPreviousClose) ?? (d.c.length>1 ? d.c[d.c.length-2] : m.chartPreviousClose);
+  const ch = price-prev, chp = ch/prev;
+  const name = p.longName || p.shortName || m.longName || m.shortName || state.symbol;
+  document.title = `${state.symbol} ${fmt(price)} · Tickerboard`;
+  $("#q-name").textContent = name;
+  const ms = (p.marketState || "").toUpperCase();
+  const msLabel = {REGULAR:"Market open", PRE:"Pre-market", POST:"After hours", CLOSED:"Market closed", PREPRE:"Market closed", POSTPOST:"Market closed"}[ms] || "";
+  $("#q-sub").innerHTML = `<span class="num">${esc(state.symbol)}</span><span>·</span><span>${esc(m.fullExchangeName||m.exchangeName||"")}</span><span>·</span><span>${esc(m.currency||"")}</span>${msLabel?`<span class="pill ${ms==="REGULAR"?"live":""}">${msLabel}</span>`:""}<span class="pill">${esc((m.instrumentType||"").toLowerCase())}</span>`;
+  $("#q-price").textContent = fmt(price);
+  $("#q-chg").className = "chg " + cls(ch);
+  $("#q-chg").textContent = `${ch>0?"+":""}${fmt(ch)} (${pct(chp)}) today`;
+  const post = raw(p.postMarketPrice), pre = raw(p.preMarketPrice);
+  if(ms.startsWith("POST") && post) $("#q-chg").textContent += `  ·  after hours ${fmt(post)} (${pct(raw(p.postMarketChangePercent))})`;
+  if(ms.startsWith("PRE") && pre) $("#q-chg").textContent += `  ·  pre-market ${fmt(pre)} (${pct(raw(p.preMarketChangePercent))})`;
+  const on = watch.includes(state.symbol);
+  $("#star").classList.toggle("on", on); $("#star").textContent = on ? "★ In watchlist" : "☆ Add to watchlist";
+  return price;
+}
+function retAt(d, days){ const n=d.c.length; if(n<=days) return null; return d.c[n-1]/d.c[n-1-days]-1; }
+function renderPerf(){
+  const d = state.daily, n = d.c.length, last = d.c[n-1];
+  const ytdStart = (()=>{ const y=new Date(d.rows[n-1].t*1000).getUTCFullYear(); const i=d.rows.findIndex(r=>new Date(r.t*1000).getUTCFullYear()===y); return i>0?d.c[i-1]:d.c[i]; })();
+  const rows = [["1W",retAt(d,5)],["1M",retAt(d,21)],["3M",retAt(d,63)],["6M",retAt(d,126)],["YTD",last/ytdStart-1],["1Y",retAt(d,252)],["5Y",n>1000?last/d.c[0]-1:null]];
+  $("#perf").innerHTML = rows.map(([k,v])=>`<div><dt>${k}</dt><dd class="${cls(v)}">${pct(v,1)}</dd></div>`).join("");
+  const sd = state.summary?.summaryDetail || {};
+  const hi = raw(sd.fiftyTwoWeekHigh) ?? Math.max(...d.rows.slice(-252).map(r=>r.h));
+  const lo = raw(sd.fiftyTwoWeekLow) ?? Math.min(...d.rows.slice(-252).map(r=>r.l));
+  const pos = Math.min(100, Math.max(0, (last-lo)/(hi-lo)*100));
+  $("#r52").innerHTML = `<div class="row-sb"><span>52-week range</span><span>${(last/hi-1>=-0.001)?"at the high":pct(last/hi-1,1)+" from high"}</span></div>
+    <div class="bar52"><i style="left:${pos}%"></i></div><div class="row-sb"><span>${fmt(lo)}</span><span>${fmt(hi)}</span></div>`;
+}
+function renderTech(){
+  const d = state.daily, i = d.c.length-1, last = d.c[i];
+  const rets = d.c.slice(-253).map((c,j,a)=>j?Math.log(c/a[j-1]):null).filter(x=>x!=null);
+  const mean = rets.reduce((a,b)=>a+b,0)/rets.length;
+  const vol = Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/(rets.length-1))*Math.sqrt(252);
+  const last60 = d.rows.slice(-60);
+  const sup = Math.min(...last60.map(r=>r.l)), res = Math.max(...last60.map(r=>r.h));
+  const vs = (a) => a!=null ? `<span class="${cls(last/a-1)}" style="font-size:11px"> ${pct(last/a-1,1)}</span>` : "";
+  const rs = d.rsi[i]; const rsTag = rs==null?"":rs>70?" overbought":rs<30?" oversold":"";
+  const items = [
+    ["RSI (14)", (rs!=null?rs.toFixed(1):"—") + `<span class="muted" style="font-size:11px">${rsTag}</span>`],
+    ["MACD / Signal", d.macd[i]!=null?`${d.macd[i].toFixed(2)} / ${d.sig[i].toFixed(2)}`:"—"],
+    ["SMA 20", fmt(d.sma20[i]) + vs(d.sma20[i])], ["SMA 50", fmt(d.sma50[i]) + vs(d.sma50[i])],
+    ["SMA 200", fmt(d.sma200[i]) + vs(d.sma200[i])], ["EMA 21", fmt(d.ema21[i]) + vs(d.ema21[i])],
+    ["Bollinger %B", d.bbU[i]!=null ? (((last-d.bbL[i])/(d.bbU[i]-d.bbL[i]))*100).toFixed(0)+"%" : "—"],
+    ["ATR (14)", d.atr[i]!=null ? `${fmt(d.atr[i])} <span class="muted" style="font-size:11px">${pct(d.atr[i]/last,1,false)}</span>` : "—"],
+    ["Volatility (1Y)", pct(vol,1,false)],
+    ["60-day support", fmt(sup)], ["60-day resistance", fmt(res)],
+    ["Avg volume (50d)", big(d.rows.slice(-50).reduce((a,r)=>a+r.v,0)/Math.min(50,d.rows.length))],
+  ];
+  $("#tech").innerHTML = items.map(([k,v])=>`<div class="stat"><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+  return {vol};
+}
+function renderStats(){
+  const s = state.summary || {}, sd = s.summaryDetail||{}, ks = s.defaultKeyStatistics||{}, fd = s.financialData||{}, p = s.price||{};
+  const items = [
+    ["Market cap", big(raw(sd.marketCap) ?? raw(p.marketCap))],
+    ["P/E (TTM)", fmt(raw(sd.trailingPE))], ["Forward P/E", fmt(raw(sd.forwardPE) ?? raw(ks.forwardPE))],
+    ["PEG ratio", fmt(raw(ks.pegRatio) ?? raw(ks.trailingPegRatio))], ["Price / book", fmt(raw(ks.priceToBook))],
+    ["Price / sales", fmt(raw(sd.priceToSalesTrailing12Months))], ["EPS (TTM)", fmt(raw(ks.trailingEps))], ["Forward EPS", fmt(raw(ks.forwardEps))],
+    ["Revenue (TTM)", big(raw(fd.totalRevenue))], ["Revenue growth", pct(raw(fd.revenueGrowth),1)], ["Earnings growth", pct(raw(fd.earningsGrowth),1)],
+    ["Gross margin", pct(raw(fd.grossMargins),1,false)], ["Operating margin", pct(raw(fd.operatingMargins),1,false)], ["Profit margin", pct(raw(fd.profitMargins),1,false)],
+    ["Return on equity", pct(raw(fd.returnOnEquity),1,false)], ["Return on assets", pct(raw(fd.returnOnAssets),1,false)],
+    ["Debt / equity", isNum(raw(fd.debtToEquity)) ? (raw(fd.debtToEquity)/100).toFixed(2) : "—"], ["Current ratio", fmt(raw(fd.currentRatio))],
+    ["Free cash flow", big(raw(fd.freeCashflow))], ["Total cash", big(raw(fd.totalCash))], ["Total debt", big(raw(fd.totalDebt))],
+    ["Dividend yield", pct(raw(sd.dividendYield) ?? raw(sd.trailingAnnualDividendYield),2,false)], ["Payout ratio", pct(raw(sd.payoutRatio),1,false)],
+    ["Beta (5Y)", fmt(raw(sd.beta) ?? raw(ks.beta))], ["Shares out", big(raw(ks.sharesOutstanding))], ["Short % float", pct(raw(ks.shortPercentOfFloat),2,false)],
+    ["Day range", isNum(raw(sd.dayLow)) ? `${fmt(raw(sd.dayLow))} – ${fmt(raw(sd.dayHigh))}` : "—"],
+    ["Volume", big(raw(sd.volume) ?? raw(p.regularMarketVolume))], ["Avg volume (3M)", big(raw(sd.averageVolume))],
+  ];
+  const ne = s.calendarEvents?.earnings?.earningsDate?.[0];
+  if(ne && raw(ne)) items.push(["Next earnings", new Date(raw(ne)*1000).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})]);
+  const shown = items.filter(([,v])=>v!=="—" && !String(v).startsWith("—"));
+  $("#stats").innerHTML = shown.length ? shown.map(([k,v])=>`<div class="stat"><dt>${k}</dt><dd>${v}</dd></div>`).join("")
+    : `<div class="err" style="grid-column:1/-1">No fundamental data for this symbol. ETFs, indexes and crypto only have price-based stats.</div>`;
+}
+function renderReco(price){
+  const s = state.summary || {}, fd = s.financialData || {}, t = s.recommendationTrend?.trend?.[0];
+  let h = "";
+  if(t && (t.strongBuy+t.buy+t.hold+t.sell+t.strongSell) > 0){
+    const parts = [["Strong buy",t.strongBuy,"var(--up)"],["Buy",t.buy,"color-mix(in srgb,var(--up) 55%,var(--surface))"],["Hold",t.hold,"var(--warn)"],["Sell",t.sell,"color-mix(in srgb,var(--down) 55%,var(--surface))"],["Strong sell",t.strongSell,"var(--down)"]];
+    const tot = parts.reduce((a,p)=>a+p[1],0);
+    h += `<div class="row-sb"><span>${tot} analysts this month</span><span>consensus: <b style="color:var(--ink)">${esc((fd.recommendationKey||"—").replace("_"," "))}</b>${isNum(raw(fd.recommendationMean))?` (${raw(fd.recommendationMean).toFixed(2)} on a 1–5 scale)`:""}</span></div>
+      <div class="stack">${parts.filter(p=>p[1]).map(p=>`<i style="width:${p[1]/tot*100}%;background:${p[2]}" title="${p[0]}: ${p[1]}"></i>`).join("")}</div>
+      <div class="reco-legend">${parts.map(p=>`<span style="--c:${p[2]}">${p[0]} ${p[1]}</span>`).join("")}</div>`;
+  }
+  const lo = raw(fd.targetLowPrice), mean = raw(fd.targetMeanPrice), hi = raw(fd.targetHighPrice);
+  if(isNum(mean)) h += `<dl class="target"><div><dt>Low target</dt><dd>${fmt(lo)}</dd></div><div><dt>Mean target</dt><dd>${fmt(mean)}</dd><dd class="${cls(mean/price-1)}" style="font-size:12px">${pct(mean/price-1,1)}</dd></div><div><dt>High target</dt><dd>${fmt(hi)}</dd></div></dl>`;
+  $("#reco").innerHTML = h || `<div class="muted">No analyst coverage for this symbol.</div>`;
+}
+function renderProfile(){
+  const a = state.summary?.assetProfile;
+  if(!a){ $("#profile").innerHTML = `<div class="muted">No company profile for this symbol.</div>`; return; }
+  const facts = [a.sector, a.industry, a.country, a.fullTimeEmployees ? a.fullTimeEmployees.toLocaleString()+" employees" : null].filter(Boolean);
+  const desc = a.longBusinessSummary || "", short = desc.length > 420 ? desc.slice(0,420).replace(/\s+\S*$/,"")+"…" : desc;
+  $("#profile").innerHTML = `<div class="facts">${facts.map(f=>`<span class="pill">${esc(f)}</span>`).join("")}</div>
+    <p id="desc">${esc(short)}</p>${desc.length>420?`<button class="linkbtn" id="more">Read more</button>`:""}
+    ${a.website?`<p><a href="${esc(a.website)}" target="_blank" rel="noopener">${esc(a.website.replace(/^https?:\/\//,""))}</a></p>`:""}`;
+  const mb = $("#more"); if(mb) mb.onclick = () => { $("#desc").textContent = desc; mb.remove(); };
+}
+
+/* ---------- analysis scorecard ---------- */
+function analyze(price, vol){
+  const d = state.daily, i = d.c.length-1, last = d.c[i], F = [];
+  const add = (group, label, detail, pts, min, max) => F.push({group,label,detail,pts,min,max});
+  const s = state.summary || {}, sd = s.summaryDetail||{}, ks = s.defaultKeyStatistics||{}, fd = s.financialData||{};
+
+  // Technical
+  const s50=d.sma50[i], s200=d.sma200[i];
+  if(s200!=null) add("t","Long-term trend", last>s200 ? `Price is ${pct(last/s200-1,1)} above its 200-day average, a long-term uptrend.` : `Price is ${pct(last/s200-1,1)} below its 200-day average, a long-term downtrend.`, last>s200?2:-2, -2, 2);
+  if(s50!=null && s200!=null) add("t", s50>s200?"Golden cross":"Death cross", s50>s200 ? "50-day average is above the 200-day, a bullish setup." : "50-day average is below the 200-day, a bearish setup.", s50>s200?1:-1, -1, 1);
+  if(s50!=null) add("t","Medium-term trend", `Price is ${pct(last/s50-1,1)} vs its 50-day average.`, last>s50?1:-1, -1, 1);
+  const r = d.rsi[i];
+  if(r!=null){ let p=0, t=`RSI is ${r.toFixed(0)}, in the neutral zone.`;
+    if(r>70){p=-1;t=`RSI is ${r.toFixed(0)}: overbought, so a pullback is more likely.`} else if(r<30){p=1;t=`RSI is ${r.toFixed(0)}: oversold, so a bounce is possible.`} else if(r>=50){p=.5;t=`RSI is ${r.toFixed(0)}: healthy positive momentum.`}
+    add("t","Momentum (RSI)",t,p,-1,1); }
+  if(d.macd[i]!=null && d.sig[i]!=null){ const bull=d.macd[i]>d.sig[i], rising=d.hist[i]>d.hist[i-1];
+    add("t","MACD", `MACD is ${bull?"above":"below"} its signal line and the histogram is ${rising?"rising":"falling"}.`, (bull?1:-1)+(rising?.5:-.5), -1.5, 1.5); }
+  const r3=retAt(d,63), r12=retAt(d,252);
+  if(r3!=null) add("t","3-month return", `${pct(r3,1)} over the last 3 months.`, r3>.1?1:r3<-.1?-1:0, -1, 1);
+  if(r12!=null) add("t","1-year return", `${pct(r12,1)} over the last 12 months.`, r12>.15?1:r12<-.15?-1:0, -1, 1);
+  const hi52 = Math.max(...d.rows.slice(-252).map(x=>x.h)), off = last/hi52-1;
+  add("t","Distance from 52-week high", `${off>-0.005?"Trading at":pct(off,1)+" from"} its 52-week high.`, off>-.1?1:off<-.35?-1:0, -1, 1);
+  add("t","Volatility", `Annualized volatility is ${pct(vol,0,false)}${vol>.6?", which is very high":vol<.25?", which is fairly calm":""}.`, vol>.6?-1:vol<.25?.5:0, -1, .5);
+
+  // Fundamental
+  const pe = raw(sd.trailingPE), fpe = raw(sd.forwardPE) ?? raw(ks.forwardPE), eps = raw(ks.trailingEps);
+  const useP = pe ?? fpe;
+  if(isNum(eps) && eps<0) add("f","Profitability","The company lost money over the last 12 months (negative EPS).",-2,-2,2);
+  else if(isNum(useP)) add("f","Valuation (P/E)", `P/E of ${useP.toFixed(1)}${isNum(fpe)&&pe?`, forward ${fpe.toFixed(1)}`:""}${useP<15?": cheap vs the market.":useP<25?": reasonably priced.":useP<40?": priced for growth.":": expensive."}`, useP<15?2:useP<25?1:useP<40?0:-1, -2, 2);
+  const peg = raw(ks.pegRatio) ?? raw(ks.trailingPegRatio);
+  if(isNum(peg) && peg>0) add("f","PEG ratio", `PEG of ${peg.toFixed(2)}${peg<1?": growth looks underpriced.":peg>2.5?": growth is fully priced in.":"."}`, peg<1?1:peg>2.5?-1:0, -1, 1);
+  const rg = raw(fd.revenueGrowth);
+  if(isNum(rg)) add("f","Revenue growth", `Revenue ${rg>=0?"grew":"shrank"} ${pct(Math.abs(rg),1,false)} year over year.`, rg>.15?2:rg>.05?1:rg<0?-1:0, -1, 2);
+  const pm = raw(fd.profitMargins);
+  if(isNum(pm)) add("f","Profit margin", `Keeps ${pct(pm,1,false)} of revenue as profit.`, pm>.2?2:pm>.1?1:pm<0?-2:0, -2, 2);
+  const roe = raw(fd.returnOnEquity);
+  if(isNum(roe)) add("f","Return on equity", `ROE of ${pct(roe,1,false)}${roe>.2?": uses shareholder money very efficiently.":roe<.05?": weak returns on capital.":"."}`, roe>.2?1:roe<.05?-1:0, -1, 1);
+  const de = raw(fd.debtToEquity);
+  if(isNum(de)) add("f","Debt load", `Debt-to-equity of ${(de/100).toFixed(2)}${de<50?": a light balance sheet.":de>200?": heavily leveraged.":"."}`, de<50?1:de>200?-1:0, -1, 1);
+  const fcf = raw(fd.freeCashflow);
+  if(isNum(fcf)) add("f","Free cash flow", fcf>0 ? `Generates ${big(fcf)} in free cash flow.` : `Burning cash: free cash flow is ${big(fcf)}.`, fcf>0?1:-1, -1, 1);
+  const tgt = raw(fd.targetMeanPrice), rm = raw(fd.recommendationMean), nA = raw(fd.numberOfAnalystOpinions);
+  if(isNum(tgt) && nA>=3){ const up = tgt/price-1; add("f","Analyst price target", `Mean target of ${fmt(tgt)} implies ${pct(up,1)} from here (${nA} analysts).`, up>.15?1:up<0?-1:0, -1, 1); }
+  if(isNum(rm) && nA>=3) add("f","Analyst rating", `Average rating ${rm.toFixed(1)} on a 1 (strong buy) to 5 (strong sell) scale.`, rm<=2?1:rm>=3.5?-1:0, -1, 1);
+
+  const score = g => { const f=F.filter(x=>x.group===g); if(f.length<2) return null;
+    const s=f.reduce((a,x)=>a+x.pts,0), lo=f.reduce((a,x)=>a+x.min,0), hi=f.reduce((a,x)=>a+x.max,0); return Math.round((s-lo)/(hi-lo)*100); };
+  const tS = score("t"), fS = score("f");
+  const total = fS==null ? tS : Math.round(tS*.5 + fS*.5);
+  return {F, tS, fS, total};
+}
+function verdictFor(n){
+  if(n>=70) return ["Strong","var(--up)","Most signals line up in its favor: solid trend and healthy numbers."];
+  if(n>=57) return ["Good","var(--up)","More positives than negatives, with a few things to watch."];
+  if(n>=43) return ["Mixed","var(--warn)","Signals are split. Worth a closer look before deciding."];
+  if(n>=30) return ["Weak","var(--down)","More negatives than positives right now."];
+  return ["Poor","var(--down)","Most signals point the wrong way at the moment."];
+}
+function renderScore(a){
+  const [label, color, blurb] = verdictFor(a.total);
+  const C = 2*Math.PI*56, mcol = n => n==null?"var(--muted)":n>=57?"var(--up)":n>=43?"var(--warn)":"var(--down)";
+  const strengths = a.F.filter(f=>f.pts>0).sort((x,y)=>y.pts/y.max-x.pts/x.max).slice(0,2).map(f=>f.label.toLowerCase());
+  const risks = a.F.filter(f=>f.pts<0).sort((x,y)=>x.pts/x.min-y.pts/y.min).reverse().slice(0,2).map(f=>f.label.toLowerCase());
+  const sum = `${blurb} ${strengths.length?`Biggest strengths: ${strengths.join(" and ")}.`:""} ${risks.length?`Biggest concerns: ${risks.join(" and ")}.`:""}${a.fS==null?" No company fundamentals are available, so this score uses price action only.":""}`;
+  const item = f => { const k = f.pts>0?"pos":f.pts<0?"neg":"neu";
+    return `<li><span class="mark ${k}">${k==="pos"?"+":k==="neg"?"−":"•"}</span><div><div class="fl">${esc(f.label)}</div><div class="fd">${esc(f.detail)}</div></div><span class="pts ${f.pts>0?"up":f.pts<0?"down":"muted"}">${f.pts>0?"+":""}${f.pts}</span></li>`; };
+  $("#score-body").innerHTML = `
+    <div class="score-top">
+      <div class="gauge" role="img" aria-label="Overall score ${a.total} out of 100">
+        <svg width="132" height="132" viewBox="0 0 132 132"><circle cx="66" cy="66" r="56" fill="none" style="stroke:var(--surface-2)" stroke-width="12"/>
+        <circle cx="66" cy="66" r="56" fill="none" style="stroke:${color}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*a.total/100} ${C}"/></svg>
+        <div class="g-in"><div class="g-num" style="color:${color}">${a.total}</div><div class="g-of">out of 100</div></div>
+      </div>
+      <div style="min-width:0">
+        <p class="verdict" style="color:${color}">${label}</p>
+        <div class="subscores">
+          <div><label>Technical</label><div class="num">${a.tS ?? "—"}/100</div><div class="meter"><i style="width:${a.tS??0}%;background:${mcol(a.tS)}"></i></div></div>
+          <div><label>Fundamental</label><div class="num">${a.fS ?? "n/a"}${a.fS!=null?"/100":""}</div><div class="meter"><i style="width:${a.fS??0}%;background:${mcol(a.fS)}"></i></div></div>
+        </div>
+        <p class="summary">${esc(sum)}</p>
+      </div>
+    </div>
+    <ul class="factors">
+      <h4>Price action &amp; trend</h4>${a.F.filter(f=>f.group==="t").map(item).join("")}
+      ${a.F.some(f=>f.group==="f")?`<h4>Business &amp; valuation</h4>${a.F.filter(f=>f.group==="f").map(item).join("")}`:""}
+    </ul>
+    <div class="disclaimer">Scores come from fixed rules applied to live data: trend, momentum, valuation, growth, profitability, debt and analyst views. They describe the numbers; they don't predict the future and aren't financial advice.</div>`;
+}
+
+/* ---------- load a symbol ---------- */
+async function load(symbol){
+  symbol = symbol.toUpperCase().trim(); if(!symbol) return;
+  const id = ++state.loadId; state.symbol = symbol; store.set("tb.last", symbol);
+  td = { sym: symbol, fin: {}, opt: {} };
+  $("#loading").hidden = false; $("#loading").textContent = `Loading ${symbol}…`;
+  renderWatch();
+  try{
+    const [chart, summ] = await Promise.all([ api(`/api/chart?symbol=${encodeURIComponent(symbol)}&range=5y&interval=1d`),
+      api(`/api/summary?symbol=${encodeURIComponent(symbol)}`).catch(()=>null) ]);
+    if(id !== state.loadId) return;
+    state.daily = parseChart(chart);
+    state.summary = summ?.quoteSummary?.result?.[0] || null;
+    state.intraday = null;
+    if(state.range==="1D"||state.range==="5D") await loadIntraday(id);
+    if(id !== state.loadId) return;
+    const price = renderQuote(); renderPerf(); const {vol} = renderTech(); renderStats(); renderReco(price); renderProfile();
+    renderScore(analyze(price, vol));
+    renderChart(true);
+    $("#loading").hidden = true;
+    $("#updated").textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+    loadTab();
+  }catch(e){
+    if(id !== state.loadId) return;
+    $("#loading").hidden = false;
+    $("#loading").innerHTML = `<div class="err"><b>Couldn't load ${esc(symbol)}</b>${esc(e.message)}. Check the symbol, or try the search box.</div>`;
+  }
+}
+async function loadIntraday(id = state.loadId){
+  const r = state.range==="1D" ? "1d" : "5d", iv = state.range==="1D" ? "5m" : "15m";
+  const j = await api(`/api/chart?symbol=${encodeURIComponent(state.symbol)}&range=${r}&interval=${iv}`);
+  if(id === state.loadId) state.intraday = parseChart(j);
+}
+
+/* ---------- watchlist ---------- */
+let quotes = {};
+function spark(arr, up){
+  if(!arr || arr.length<2) return "";
+  const mn=Math.min(...arr), mx=Math.max(...arr), w=56, h=22;
+  const p = arr.map((v,i)=>`${(i/(arr.length-1)*w).toFixed(1)},${(h-(v-mn)/(mx-mn||1)*h).toFixed(1)}`).join(" ");
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h+1}" aria-hidden="true"><polyline points="${p}" fill="none" stroke="${up?"var(--up)":"var(--down)"}" stroke-width="1.5"/></svg>`;
+}
+function renderWatch(){
+  if(!watch.length){ $("#wl").innerHTML = `<li class="wl-empty">Search for a stock and press “Add to watchlist”.</li>`; return; }
+  $("#wl").innerHTML = watch.map(s => { const q = quotes[s] || {};
+    const ch = isNum(q.price)&&isNum(q.prev) ? q.price/q.prev-1 : null;
+    return `<li data-s="${esc(s)}" class="${s===state.symbol?"on":""}" tabindex="0">
+      <span class="sym">${esc(s)}</span><span class="px">${fmt(q.price)}</span>
+      <span class="nm">${esc(q.name||"")}</span><span class="ch ${cls(ch)}">${pct(ch)}</span>
+      ${spark(q.spark, (ch??0)>=0)}<button class="rm" data-rm="${esc(s)}" title="Remove ${esc(s)}" aria-label="Remove ${esc(s)}">×</button></li>`; }).join("");
+}
+async function refreshQuotes(){
+  if(!watch.length) return;
+  try{
+    const list = await api(`/api/quotes?symbols=${encodeURIComponent(watch.join(","))}`);
+    list.forEach(q => { if(!q.error) quotes[q.symbol] = q; });
+    renderWatch();
+  }catch{}
+}
+$("#wl").addEventListener("click", e => {
+  const rm = e.target.closest("[data-rm]");
+  if(rm){ e.stopPropagation(); watch = watch.filter(s=>s!==rm.dataset.rm); store.set("tb.watch", watch); renderWatch(); if(state.daily) renderQuote(); return; }
+  const li = e.target.closest("li[data-s]"); if(li) load(li.dataset.s);
+});
+$("#wl").addEventListener("keydown", e => { const li = e.target.closest("li[data-s]"); if(li && e.key==="Enter") load(li.dataset.s); });
+$("#star").onclick = () => {
+  if(watch.includes(state.symbol)) watch = watch.filter(s=>s!==state.symbol); else watch.push(state.symbol);
+  store.set("tb.watch", watch); renderQuote(); renderWatch(); refreshQuotes();
+};
+
+/* ---------- search ---------- */
+let sTimer, sSel = -1, sItems = [];
+$("#q").addEventListener("input", e => {
+  clearTimeout(sTimer); const v = e.target.value.trim();
+  if(!v){ $("#results").hidden = true; return; }
+  sTimer = setTimeout(async () => {
+    try{
+      const j = await api(`/api/search?q=${encodeURIComponent(v)}`);
+      sItems = (j.quotes||[]).filter(q=>q.symbol); sSel = -1;
+      $("#results").innerHTML = sItems.length ? sItems.map((q,i)=>`<button data-i="${i}"><b>${esc(q.symbol)}</b><span>${esc(q.shortname||q.longname||"")}</span><small>${esc(q.quoteType||"")} · ${esc(q.exchDisp||"")}</small></button>`).join("")
+        : `<div style="padding:10px 12px" class="muted">No matches. Press Enter to try “${esc(v.toUpperCase())}” directly.</div>`;
+      $("#results").hidden = false;
+    }catch{}
+  }, 220);
+});
+$("#q").addEventListener("keydown", e => {
+  const btns = [...$("#results").querySelectorAll("button")];
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); if(!btns.length) return;
+    sSel = (sSel + (e.key==="ArrowDown"?1:-1) + btns.length) % btns.length; btns.forEach((b,i)=>b.classList.toggle("sel",i===sSel)); }
+  else if(e.key==="Enter"){ e.preventDefault(); const pick = sSel>=0 ? sItems[sSel].symbol : (sItems[0]?.symbol && $("#q").value.trim().toUpperCase()!==sItems[0].symbol && !/^[A-Z.\-=^]{1,10}$/.test($("#q").value.trim()) ? sItems[0].symbol : $("#q").value);
+    choose(pick); }
+  else if(e.key==="Escape"){ $("#results").hidden = true; }
+});
+$("#results").addEventListener("mousedown", e => { const b = e.target.closest("button"); if(b){ e.preventDefault(); choose(sItems[+b.dataset.i].symbol); } });
+$("#q").addEventListener("blur", () => setTimeout(()=>$("#results").hidden = true, 120));
+function choose(sym){ $("#q").value = ""; $("#results").hidden = true; $("#q").blur(); load(sym); }
+
+/* ---------- toolbar ---------- */
+function markRange(){ document.querySelectorAll("#ranges button").forEach(b=>b.classList.toggle("on", b.dataset.r===state.range)); }
+$("#ranges").addEventListener("click", async e => {
+  const b = e.target.closest("button"); if(!b) return;
+  state.range = b.dataset.r; store.set("tb.range", state.range); markRange();
+  if((state.range==="1D"||state.range==="5D")){
+    $("#loading").hidden = false; $("#loading").textContent = "Loading intraday…";
+    try{ await loadIntraday(); }catch(err){ $("#loading").textContent = "Intraday data isn't available for this symbol."; return; }
+    $("#loading").hidden = true;
+  }
+  renderChart(true);
+});
+$("#ctype").addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
+  state.ctype = b.dataset.t; document.querySelectorAll("#ctype button").forEach(x=>x.classList.toggle("on",x===b)); applyToggles(); });
+$("#inds").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return;
+  state.inds[b.dataset.i] = !state.inds[b.dataset.i]; store.set("tb.inds", state.inds); applyToggles(); updateLegend(null); syncAll(); });
+
+/* ---------- theme ---------- */
+const savedTheme = store.get("tb.theme", null);
+if(savedTheme) document.documentElement.dataset.theme = savedTheme;
+$("#theme").onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = dark ? "light" : "dark"; store.set("tb.theme", document.documentElement.dataset.theme); retheme();
+};
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+
+/* ---------- tabs ---------- */
+const TABS = ["overview","financials","options","news"];
+let tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
+let td = { sym:null, fin:{}, opt:{} };
+function setTab(t, updateHash = true){
+  tab = t;
+  TABS.forEach(x => { $("#tab-"+x).hidden = x !== t; });
+  document.querySelectorAll("#tabs button").forEach(b => { b.classList.toggle("on", b.dataset.tab === t); b.setAttribute("aria-selected", b.dataset.tab === t); });
+  if(updateHash && location.hash.slice(1) !== t) history.replaceState(null, "", "#"+t);
+  loadTab();
+}
+$("#tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if(b) setTab(b.dataset.tab); });
+addEventListener("hashchange", () => { const h = location.hash.slice(1); if(TABS.includes(h) && h !== tab) setTab(h, false); });
+function loadTab(){
+  if(!state.daily || td.sym !== state.symbol) return;
+  if(tab === "financials") loadFinancials();
+  else if(tab === "options") loadOptions(td.optSel);
+  else if(tab === "news") loadNews();
+}
+
+/* ---------- small svg charts ---------- */
+const CW = 460, CH = 220, PL = 58, PR = 14, PT = 14, PB = 28;
+const pctAx = t => (t*100).toFixed(0) + "%";
+const bigAx = t => t === 0 ? "0" : big(t);
+function niceScale(lo, hi, n = 4){
+  if(!(hi > lo)){ const d = Math.abs(hi) || 1; lo -= d*.1; hi += d*.1; }
+  const r0 = (hi-lo)/n, mag = 10 ** Math.floor(Math.log10(r0)), e = r0/mag;
+  const step = (e >= 7.5 ? 10 : e >= 3.5 ? 5 : e >= 1.5 ? 2 : 1) * mag;
+  const a = Math.floor(lo/step + 1e-9)*step, b = Math.ceil(hi/step - 1e-9)*step, ticks = [];
+  for(let v = a; v <= b + step/2; v += step) ticks.push(Math.abs(v) < step/1e6 ? 0 : v);
+  return { lo:a, hi:b, ticks };
+}
+const svgOpen = label => `<svg class="svgc" viewBox="0 0 ${CW} ${CH}" role="img" aria-label="${esc(label)}">`;
+const yGrid = (s, y, yfmt) => s.ticks.map(t => `<line x1="${PL}" x2="${CW-PR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" style="stroke:var(--line);stroke-width:${t===0?1.5:1}"/><text x="${PL-6}" y="${(y(t)+3.5).toFixed(1)}" text-anchor="end">${yfmt(t)}</text>`).join("");
+function barChart(label, labels, series, yfmt){
+  const all = series.flatMap(s => s.values).filter(isNum);
+  if(!all.length) return `<div class="muted nodata">Not reported</div>`;
+  const s = niceScale(Math.min(0, ...all), Math.max(0, ...all));
+  const y = v => PT + (s.hi-v)/(s.hi-s.lo)*(CH-PT-PB);
+  const gw = (CW-PL-PR)/labels.length, bw = Math.min(26, gw*.72/series.length);
+  let out = svgOpen(label) + yGrid(s, y, yfmt);
+  labels.forEach((l, i) => {
+    const cx = PL + gw*(i+.5);
+    series.forEach((se, j) => { const v = se.values[i]; if(!isNum(v)) return;
+      const x = cx - bw*series.length/2 + j*bw, top = Math.min(y(0), y(v)), h = Math.max(1, Math.abs(y(v)-y(0)));
+      const c = typeof se.color === "function" ? se.color(v) : se.color;
+      out += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${h.toFixed(1)}" rx="2" style="fill:${c}"><title>${esc(se.name)} · ${esc(l)}: ${yfmt(v)}</title></rect>`; });
+    out += `<text x="${cx.toFixed(1)}" y="${CH-8}" text-anchor="middle">${esc(l)}</text>`;
+  });
+  return out + "</svg>";
+}
+function xyChart(label, series, o = {}){
+  const valid = p => isNum(p[0]) && isNum(p[1]);
+  const pts = series.flatMap(s => s.points).filter(valid);
+  if(pts.length < 2) return `<div class="muted nodata">Not enough data</div>`;
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  (o.hlines || []).forEach(h => ys.push(h.y));
+  const xlo = o.xlo ?? Math.min(...xs), xhi = o.xhi ?? Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys), pad = (ymax-ymin)*.08 || Math.abs(ymax)*.1 || 1;
+  const s = niceScale(o.y0 ? 0 : ymin-pad, ymax+pad);
+  const x = v => PL + (v-xlo)/((xhi-xlo) || 1)*(CW-PL-PR), y = v => PT + (s.hi-v)/(s.hi-s.lo)*(CH-PT-PB);
+  const xfmt = o.xfmt || (v => v), yfmt = o.yfmt || (v => v);
+  let out = svgOpen(label) + yGrid(s, y, yfmt);
+  (o.xticks || Array.from({length:5}, (_, i) => xlo + (xhi-xlo)*i/4)).forEach(t => {
+    out += `<text x="${x(t).toFixed(1)}" y="${CH-8}" text-anchor="middle">${esc(xfmt(t))}</text>`; });
+  (o.vlines || []).forEach(v => { if(v.x < xlo || v.x > xhi) return;
+    out += `<line x1="${x(v.x).toFixed(1)}" x2="${x(v.x).toFixed(1)}" y1="${PT}" y2="${CH-PB}" style="stroke:${v.color};stroke-dasharray:4 3"/><text x="${(x(v.x)+4).toFixed(1)}" y="${PT+8}" style="fill:${v.color}">${esc(v.label)}</text>`; });
+  (o.hlines || []).forEach(h => {
+    out += `<line x1="${PL}" x2="${CW-PR}" y1="${y(h.y).toFixed(1)}" y2="${y(h.y).toFixed(1)}" style="stroke:${h.color};stroke-dasharray:5 4;stroke-width:1.5"/><text x="${CW-PR-4}" y="${(y(h.y)-5).toFixed(1)}" text-anchor="end" style="fill:${h.color}">${esc(h.label)}</text>`; });
+  series.forEach(se => {
+    const p = se.points.filter(valid).sort((a, b) => a[0]-b[0]); if(!p.length) return;
+    out += `<polyline points="${p.map(q => x(q[0]).toFixed(1)+","+y(q[1]).toFixed(1)).join(" ")}" style="fill:none;stroke:${se.color};stroke-width:2;stroke-linejoin:round"/>`;
+    if(se.dots) p.forEach(q => { out += `<circle cx="${x(q[0]).toFixed(1)}" cy="${y(q[1]).toFixed(1)}" r="3.2" style="fill:${se.color}"><title>${esc(se.name)} · ${esc(xfmt(q[0]))}: ${yfmt(q[1])}</title></circle>`; });
+  });
+  return out + "</svg>";
+}
+const legend = items => `<div class="lg">${items.map(([n, c]) => `<span style="--c:${c}">${esc(n)}</span>`).join("")}</div>`;
+const ccard = (title, sub, body) => `<div class="ccard"><h4>${esc(title)}</h4>${sub}${body}</div>`;
+const dateFmt = (ts, opts = {month:"short", day:"numeric", year:"numeric"}) => new Date(ts*1000).toLocaleDateString(undefined, {...opts, timeZone:"UTC"});
+
+/* ---------- financials tab ---------- */
+const FIN_LABELS = { TotalRevenue:"Revenue", CostOfRevenue:"Cost of revenue", GrossProfit:"Gross profit", ResearchAndDevelopment:"Research & development",
+  SellingGeneralAndAdministration:"Selling, general & admin", OperatingExpense:"Operating expenses", OperatingIncome:"Operating income",
+  InterestExpense:"Interest expense", PretaxIncome:"Pretax income", TaxProvision:"Income tax", NetIncome:"Net income", EBITDA:"EBITDA",
+  DilutedEPS:"EPS (diluted)", DilutedAverageShares:"Shares outstanding (diluted)",
+  TotalAssets:"Total assets", CurrentAssets:"Current assets", CashCashEquivalentsAndShortTermInvestments:"Cash & short-term investments",
+  AccountsReceivable:"Accounts receivable", Inventory:"Inventory", TotalLiabilitiesNetMinorityInterest:"Total liabilities",
+  CurrentLiabilities:"Current liabilities", TotalDebt:"Total debt", LongTermDebt:"Long-term debt", StockholdersEquity:"Shareholders' equity",
+  RetainedEarnings:"Retained earnings",
+  OperatingCashFlow:"Operating cash flow", CapitalExpenditure:"Capital expenditure", FreeCashFlow:"Free cash flow",
+  InvestingCashFlow:"Investing cash flow", FinancingCashFlow:"Financing cash flow", RepurchaseOfCapitalStock:"Share buybacks",
+  CashDividendsPaid:"Dividends paid", StockBasedCompensation:"Stock-based compensation" };
+const KEY_ROWS = new Set(["TotalRevenue","GrossProfit","OperatingIncome","NetIncome","DilutedEPS","TotalAssets","TotalLiabilitiesNetMinorityInterest","StockholdersEquity","OperatingCashFlow","FreeCashFlow"]);
+let finFreq = "annual";
+$("#fin-freq").addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
+  finFreq = b.dataset.f; document.querySelectorAll("#fin-freq button").forEach(x => x.classList.toggle("on", x === b)); loadFinancials(); });
+async function loadFinancials(){
+  const sym = state.symbol, f = finFreq;
+  if(td.fin[f]) return renderFinancials(td.fin[f]);
+  $("#fin-charts").innerHTML = `<div class="err">Loading financial statements…</div>`;
+  ["income","balance","cashflow"].forEach(k => { $("#fin-"+k).innerHTML = ""; });
+  try{
+    const j = await api(`/api/financials?symbol=${encodeURIComponent(sym)}&freq=${f}`);
+    if(td.sym !== sym) return;
+    td.fin[f] = j;
+    if(finFreq === f && tab === "financials") renderFinancials(j);
+  }catch(e){ if(td.sym === sym) $("#fin-charts").innerHTML = `<div class="err"><b>Couldn't load financials</b>${esc(e.message)}</div>`; }
+}
+function renderFinancials(j){
+  const D = j.data, keys = Object.keys(D), groups = ["income","balance","cashflow"];
+  if(!keys.length){
+    $("#fin-charts").innerHTML = `<div class="err"><b>No financial statements</b>ETFs, funds, indexes and crypto don't publish income statements or balance sheets.</div>`;
+    groups.forEach(g => { $("#fin-"+g).innerHTML = ""; }); $("#fin-note").textContent = ""; return;
+  }
+  const annual = j.freq === "annual";
+  const perDate = {}; keys.forEach(k => D[k].forEach(x => { perDate[x.date] = (perDate[x.date] || 0) + 1; }));
+  const minFill = Math.max(...Object.values(perDate)) * 0.4; // skip periods that are mostly blank
+  const dates = Object.keys(perDate).filter(d => perDate[d] >= minFill).sort().slice(annual ? -5 : -6);
+  const S = k => dates.map(d => D[k]?.find(x => x.date === d)?.value ?? null);
+  const L = dates.map(d => annual ? "FY" + d.slice(0,4) : new Date(d+"T00:00:00Z").toLocaleDateString(undefined, {month:"short", year:"2-digit", timeZone:"UTC"}));
+  const ratio = (a, b) => a.map((x, i) => isNum(x) && isNum(b[i]) && b[i] !== 0 ? x/b[i] : null);
+  const rev = S("TotalRevenue");
+  const gm = ratio(S("GrossProfit"), rev), om = ratio(S("OperatingIncome"), rev), nm = ratio(S("NetIncome"), rev);
+  const idx = L.map((_, i) => i);
+  $("#fin-note").textContent = `${dates.length} ${annual ? "fiscal years" : "quarters"}, latest period ended ${new Date(dates[dates.length-1]+"T00:00:00Z").toLocaleDateString(undefined, {month:"short", day:"numeric", year:"numeric", timeZone:"UTC"})}`;
+  const signed = good => v => v < 0 ? "var(--down)" : good;
+  $("#fin-charts").innerHTML =
+    ccard("Revenue & net income", legend([["Revenue","var(--accent)"],["Net income","var(--up)"]]),
+      barChart("Revenue and net income", L, [{name:"Revenue", color:"var(--accent)", values:rev}, {name:"Net income", color:signed("var(--up)"), values:S("NetIncome")}], bigAx)) +
+    ccard("Margins", legend([["Gross","var(--c-sma20)"],["Operating","var(--accent)"],["Net","var(--up)"]]),
+      xyChart("Margins", [{name:"Gross", color:"var(--c-sma20)", points:gm.map((m, i) => [i, m]), dots:true},
+        {name:"Operating", color:"var(--accent)", points:om.map((m, i) => [i, m]), dots:true},
+        {name:"Net", color:"var(--up)", points:nm.map((m, i) => [i, m]), dots:true}],
+        {xticks:idx, xfmt:i => L[i] ?? "", yfmt:pctAx, xlo:-0.4, xhi:L.length-0.6})) +
+    ccard("Cash flow", legend([["Operating cash flow","var(--c-ema)"],["Free cash flow","var(--up)"]]),
+      barChart("Cash flow", L, [{name:"Operating cash flow", color:"var(--c-ema)", values:S("OperatingCashFlow")}, {name:"Free cash flow", color:signed("var(--up)"), values:S("FreeCashFlow")}], bigAx)) +
+    ccard("Cash vs debt", legend([["Cash & investments","var(--up)"],["Total debt","var(--down)"]]),
+      barChart("Cash versus debt", L, [{name:"Cash & investments", color:"var(--up)", values:S("CashCashEquivalentsAndShortTermInvestments")}, {name:"Total debt", color:"var(--down)", values:S("TotalDebt")}], bigAx));
+  const derived = {
+    income: [["Gross margin", gm, "p"], ["Operating margin", om, "p"], ["Net margin", nm, "p"]],
+    balance: [["Debt / equity", ratio(S("TotalDebt"), S("StockholdersEquity")), "x"], ["Current ratio", ratio(S("CurrentAssets"), S("CurrentLiabilities")), "x"]],
+    cashflow: [["Free cash flow margin", ratio(S("FreeCashFlow"), rev), "p"]],
+  };
+  groups.forEach(g => {
+    const rows = j.groups[g].filter(k => D[k] && S(k).some(isNum));
+    if(!rows.length){ $("#fin-"+g).innerHTML = `<div class="muted" style="padding:14px">Not reported for this company.</div>`; return; }
+    const cell = (k, x) => !isNum(x) ? "—" : k === "DilutedEPS" ? fmt(x) : big(x);
+    const change = vals => { const a = vals[vals.length-1], b = vals[vals.length-2];
+      if(!isNum(a) || !isNum(b) || b === 0) return `<td class="muted">—</td>`;
+      const c = (a-b)/Math.abs(b); return `<td class="${cls(c)}">${pct(c,1)}</td>`; };
+    let h = `<table class="ft"><thead><tr><th>${annual ? "Fiscal year" : "Quarter"}</th>${L.map(l => `<th>${esc(l)}</th>`).join("")}<th>${annual ? "YoY" : "QoQ"}</th></tr></thead><tbody>`;
+    rows.forEach(k => { const vals = S(k);
+      h += `<tr class="${KEY_ROWS.has(k) ? "key" : ""}"><td>${esc(FIN_LABELS[k] || k)}</td>${vals.map(x => `<td class="${isNum(x) && x < 0 ? "down" : ""}">${cell(k, x)}</td>`).join("")}${change(vals)}</tr>`; });
+    derived[g].forEach(([name, vals, t]) => { if(!vals.some(isNum)) return;
+      h += `<tr class="derived"><td>${name}</td>${vals.map(x => `<td>${!isNum(x) ? "—" : t === "p" ? pct(x,1,false) : x.toFixed(2)}</td>`).join("")}<td></td></tr>`; });
+    $("#fin-"+g).innerHTML = h + "</tbody></table>";
+  });
+}
+
+/* ---------- options & IV tab ---------- */
+$("#tab-options").addEventListener("change", e => { if(e.target.id === "exp") loadOptions(+e.target.value); });
+async function loadOptions(date){
+  const sym = state.symbol, key = date || "front", body = $("#tab-options");
+  if(!td.term) body.innerHTML = `<section class="panel"><div class="err">Loading option chains…</div></section>`;
+  else if(!td.opt[key]){ const sel = $("#exp"); if(sel) sel.disabled = true; }
+  try{
+    const [term, chain] = await Promise.all([
+      td.term || api(`/api/ivterm?symbol=${encodeURIComponent(sym)}`).catch(() => ({term:[]})),
+      td.opt[key] || api(`/api/options?symbol=${encodeURIComponent(sym)}${date ? "&date="+date : ""}`)]);
+    if(td.sym !== sym) return;
+    td.term = term; td.opt[key] = chain;
+    const res = chain.optionChain?.result?.[0];
+    if(!res || !(res.expirationDates || []).length || !res.options?.[0]){
+      body.innerHTML = `<section class="panel"><div class="err"><b>No listed options</b>${esc(sym)} has no options market on Yahoo Finance, so there's no implied volatility to show.</div></section>`; return; }
+    if(!date){ // skip expiries that are only a few days out; they say little about volatility
+      const target = res.expirationDates.find(t => t*1000 - Date.now() >= 6.5*864e5);
+      if(target && target !== res.options[0].expirationDate) return loadOptions(target);
+    }
+    td.optSel = res.options[0].expirationDate;
+    if(tab === "options") renderOptions(res, term);
+  }catch(e){ if(td.sym === sym) body.innerHTML = `<section class="panel"><div class="err"><b>Couldn't load options</b>${esc(e.message)}</div></section>`; }
+}
+function renderOptions(res, term){
+  const spot = res.quote.regularMarketPrice, ch = res.options[0], exp = ch.expirationDate;
+  const days = Math.max((exp*1000 - Date.now())/864e5, 0.5);
+  const calls = ch.calls || [], puts = ch.puts || [];
+  const ok = o => o.impliedVolatility > 0.01 && o.impliedVolatility < 5 && ((o.bid || 0) > 0 || (o.ask || 0) > 0);
+  const strikes = [...new Set([...calls, ...puts].map(o => o.strike))].sort((a, b) => a-b);
+  const near = k => strikes.reduce((b, s) => Math.abs(s-k) < Math.abs(b-k) ? s : b, strikes[0]);
+  const ivAt = (k, side) => { const o = (side === "c" ? calls : puts).find(o => o.strike === near(k) && ok(o)); return o ? o.impliedVolatility : null; };
+  const atmK = near(spot);
+  const atmList = [ivAt(spot, "c"), ivAt(spot, "p")].filter(isNum);
+  const termRow = (term.term || []).find(r => r.exp === exp);
+  const atmIV = atmList.length ? atmList.reduce((a, b) => a+b)/atmList.length : (termRow?.iv ?? null);
+  const em = isNum(atmIV) ? spot*atmIV*Math.sqrt(days/365) : null;
+  // 30-day implied vol, interpolated across expirations
+  const T = (term.term || []).filter(r => isNum(r.iv)).sort((a, b) => a.days-b.days);
+  let iv30 = null;
+  if(T.length){ const i = T.findIndex(r => r.days >= 30);
+    if(i === 0) iv30 = T[0].iv; else if(i < 0) iv30 = T[T.length-1].iv;
+    else { const a = T[i-1], b = T[i]; iv30 = a.iv + (b.iv-a.iv)*(30-a.days)/(b.days-a.days); } }
+  const ivNow = iv30 ?? atmIV;
+  // realized (historical) volatility from daily closes
+  const c = state.daily.c, lr = c.map((x, i) => i ? Math.log(x/c[i-1]) : null);
+  const hvAt = (end, n) => { const s = lr.slice(end-n+1, end+1); if(s.length < n || s.some(v => v == null)) return null;
+    const m = s.reduce((a, b) => a+b, 0)/n; return Math.sqrt(s.reduce((a, b) => a+(b-m)**2, 0)/(n-1))*Math.sqrt(252); };
+  const last = c.length-1, hv30 = hvAt(last, 30);
+  const hvSeries = []; for(let i = Math.max(21, last-251); i <= last; i++) hvSeries.push([state.daily.rows[i].t, hvAt(i, 20)]);
+  // put/call across loaded expirations
+  const tsum = k => (term.term || []).reduce((a, r) => a + (r[k] || 0), 0), osum = (arr, k) => arr.reduce((a, o) => a + (o[k] || 0), 0);
+  let cOI = tsum("callOI"), pOI = tsum("putOI"), cV = tsum("callVol"), pV = tsum("putVol");
+  if(!cOI && !pOI){ cOI = osum(calls,"openInterest"); pOI = osum(puts,"openInterest"); cV = osum(calls,"volume"); pV = osum(puts,"volume"); }
+  const pcOI = cOI ? pOI/cOI : null, pcV = cV ? pV/cV : null;
+  // max pain: settlement price where option holders collect the least
+  let mp = null;
+  if([...calls, ...puts].some(o => o.openInterest)){ let best = Infinity;
+    strikes.forEach(P => { let tot = 0;
+      calls.forEach(o => { tot += (o.openInterest || 0)*Math.max(0, P-o.strike); });
+      puts.forEach(o => { tot += (o.openInterest || 0)*Math.max(0, o.strike-P); });
+      if(tot < best){ best = tot; mp = P; } }); }
+  const pSk = em ? ivAt(spot-em, "p") : null, cSk = em ? ivAt(spot+em, "c") : null;
+  const skew = isNum(pSk) && isNum(cSk) ? pSk-cSk : null;
+  const ratio = isNum(ivNow) && isNum(hv30) ? ivNow/hv30 : null;
+  const dExp = dateFmt(exp), sExp = dateFmt(exp, {month:"short", day:"numeric"});
+
+  const tiles = [
+    ["ATM IV · " + sExp, pct(atmIV,1,false)], ["30-day IV", pct(iv30,1,false)], ["Realized vol (30d)", pct(hv30,1,false)],
+    ["IV ÷ realized", isNum(ratio) ? ratio.toFixed(2)+"×" : "—"],
+    ["Expected move · " + sExp, em ? `±${fmt(em)} <span class="muted" style="font-size:11px">${pct(em/spot,1,false)}</span>` : "—"],
+    ["Expected range", em ? `${fmt(spot-em)} – ${fmt(spot+em)}` : "—"],
+    ["Put/call open interest", isNum(pcOI) ? pcOI.toFixed(2) : "—"], ["Put/call volume", isNum(pcV) ? pcV.toFixed(2) : "—"],
+    ["Max pain · " + sExp, isNum(mp) ? fmt(mp) : "—"],
+    ["Skew (1σ put − call)", isNum(skew) ? (skew > 0 ? "+" : "") + (skew*100).toFixed(1) + " pts" : "—"],
+  ];
+  const R = [];
+  if(isNum(ratio)) R.push(ratio > 1.25 ? `Options are pricing in more movement (${pct(ivNow,0,false)} a year) than the stock has actually shown lately (${pct(hv30,0,false)}). Options look expensive, which often happens ahead of earnings or big news.`
+    : ratio < 0.85 ? `Implied volatility (${pct(ivNow,0,false)}) is below recent realized volatility (${pct(hv30,0,false)}). Options look cheap compared with how much the stock has been moving.`
+    : `Implied volatility (${pct(ivNow,0,false)}) is close to realized volatility (${pct(hv30,0,false)}), so options are fairly priced against recent moves.`);
+  if(em) R.push(`The options market expects about a ±${fmt(em)} (${pct(em/spot,1,false)}) move by ${dExp}: a one-standard-deviation range of ${fmt(spot-em)} to ${fmt(spot+em)}, which holds roughly 68% of the time.`);
+  if(T.length >= 3){ const front = T.find(r => r.days >= 5) || T[0], back = T[T.length-1];
+    R.push(front.iv > back.iv*1.08 ? `The term structure is inverted: near-term IV (${pct(front.iv,0,false)}) is above longer-dated IV (${pct(back.iv,0,false)}), so traders expect an event soon.`
+      : back.iv > front.iv*1.05 ? `The term structure slopes upward, which is normal: ${pct(front.iv,0,false)} near term, ${pct(back.iv,0,false)} further out. No unusual near-term event is priced in.`
+      : `The term structure is flat at around ${pct(front.iv,0,false)} across expirations.`); }
+  if(isNum(pcOI)) R.push(pcOI > 1.2 ? `Put/call open interest of ${pcOI.toFixed(2)} is high: more traders are positioned for downside or hedging.`
+    : pcOI < 0.7 ? `Put/call open interest of ${pcOI.toFixed(2)} is low: positioning leans bullish, with more calls than puts.` : `Put/call open interest of ${pcOI.toFixed(2)} is balanced.`);
+  if(isNum(skew)) R.push(skew > 0.03 ? `Downside puts cost more than upside calls (skew +${(skew*100).toFixed(1)} pts), so traders are paying up for protection.`
+    : skew < -0.01 ? `Upside calls are priced richer than downside puts, a sign of speculative bullish demand.` : `Skew is mild: puts and calls the same distance from the price are priced about the same.`);
+  if(isNum(mp)) R.push(`Max pain for ${sExp} is ${fmt(mp)}, ${pct(mp/spot-1,1)} from the current price. Some traders watch it as a magnet near expiration; treat it as a loose guide.`);
+
+  const band = Math.min(0.35, Math.max(0.12, em ? 3*em/spot : 0.2));
+  const smile = arr => arr.filter(o => ok(o) && Math.abs(o.strike/spot-1) <= band).map(o => [o.strike, o.impliedVolatility]);
+  const ivc = "var(--accent)", hvc = "var(--c-sma200)";
+  const charts =
+    ccard("IV term structure", legend([["ATM IV by expiration", ivc], ["Realized vol (30d)", hvc]]),
+      xyChart("IV term structure", [{name:"ATM IV", color:ivc, points:T.map(r => [r.days, r.iv]), dots:true}],
+        {xfmt:d => Math.round(d)+"d", yfmt:pctAx, hlines:isNum(hv30) ? [{y:hv30, label:"realized", color:hvc}] : []})) +
+    ccard("Volatility smile · " + sExp, legend([["Calls","var(--up)"], ["Puts","var(--down)"]]),
+      xyChart("Volatility smile", [{name:"Calls", color:"var(--up)", points:smile(calls)}, {name:"Puts", color:"var(--down)", points:smile(puts)}],
+        {xfmt:v => fmt(v, v >= 100 ? 0 : 1), yfmt:pctAx, vlines:[{x:spot, label:"price", color:"var(--ink)"}]})) +
+    ccard("Realized vs implied, past year", legend([["20-day realized vol", hvc], ["Current 30-day IV", ivc]]),
+      xyChart("Realized versus implied volatility", [{name:"20-day realized", color:hvc, points:hvSeries}],
+        {xfmt:t => dateFmt(t, {month:"short", year:"2-digit"}), yfmt:pctAx, y0:true, hlines:isNum(ivNow) ? [{y:ivNow, label:"IV now", color:ivc}] : []}));
+
+  const ci = strikes.indexOf(atmK), ks = strikes.slice(Math.max(0, ci-12), ci+13);
+  const C = Object.fromEntries(calls.map(o => [o.strike, o])), P = Object.fromEntries(puts.map(o => [o.strike, o]));
+  const n0 = v => isNum(v) && v ? v.toLocaleString() : "—";
+  const pr = v => isNum(v) && v ? fmt(v) : "—";
+  const ivs = o => o && o.impliedVolatility > 0.01 ? (o.impliedVolatility*100).toFixed(1)+"%" : "—";
+  let spotDone = false;
+  const rows = ks.map(k => {
+    const cO = C[k], pO = P[k], ci2 = k < spot ? "itm" : "", pi = k > spot ? "itm" : "";
+    let mark = ""; if(!spotDone && k > spot){ mark = "spot"; spotDone = true; }
+    const cc = (v, x = "") => `<td class="${ci2} ${x}">${v}</td>`, pc = (v, x = "") => `<td class="${pi} ${x}">${v}</td>`;
+    return `<tr class="${mark}">${cc(pr(cO?.lastPrice))}${cc(pr(cO?.bid))}${cc(pr(cO?.ask))}${cc(n0(cO?.volume))}${cc(n0(cO?.openInterest))}${cc(ivs(cO),"iv")}<td class="k">${fmt(k)}</td>${pc(ivs(pO),"iv")}${pc(n0(pO?.openInterest))}${pc(n0(pO?.volume))}${pc(pr(pO?.bid))}${pc(pr(pO?.ask))}${pc(pr(pO?.lastPrice))}</tr>`;
+  }).join("");
+  const table = `<table class="ft chain"><thead><tr><th colspan="6" class="side">Calls</th><th></th><th colspan="6" class="side">Puts</th></tr>
+    <tr><th>Last</th><th>Bid</th><th>Ask</th><th>Volume</th><th>Open int.</th><th>IV</th><th>Strike</th><th>IV</th><th>Open int.</th><th>Volume</th><th>Bid</th><th>Ask</th><th>Last</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  $("#tab-options").innerHTML = `
+    <section class="panel">
+      <div class="toolbar">
+        <label for="exp" class="muted" style="font-size:12px">Expiration</label>
+        <select id="exp">${res.expirationDates.map(t => `<option value="${t}"${t === exp ? " selected" : ""}>${dateFmt(t)} (${Math.max(0, Math.round((t*1000-Date.now())/864e5))}d)</option>`).join("")}</select>
+        <span class="muted" style="font-size:12px">Price ${fmt(spot)} · ${Math.round(days)} days to expiration</span>
+      </div>
+      <dl class="stats">${tiles.map(([k, v]) => `<div class="stat"><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>
+      <ul class="ivread">${R.map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+    </section>
+    <section class="panel"><div class="cards4">${charts}</div></section>
+    <section class="panel">
+      <div class="panel-h"><h3>Option chain · ${esc(dExp)}</h3><span class="muted" style="font-size:11px">shaded = in the money · blue line = current price</span></div>
+      <div class="tablewrap">${table}</div>
+    </section>`;
+}
+
+/* ---------- news tab ---------- */
+const POS_RE = /\b(beat|beats|surge[sd]?|soar(s|ed)?|jump(s|ed)?|rall(y|ies|ied)|gain(s|ed)?|record|upgrade[sd]?|bullish|strong(er)?|raise[sd]?|tops?|outperform(s|ed)?|boost(s|ed)?|wins?|higher|rebound(s|ed)?|climb(s|ed)?|breakthrough|beats? estimates)\b/gi;
+const NEG_RE = /\b(miss(es|ed)?|fall(s|en)?|fell|drop(s|ped)?|plunge[sd]?|slump(s|ed)?|sink(s)?|sank|downgrade[sd]?|bearish|weak(er|ness)?|cut(s)?|lawsuit|probe|recall|layoffs?|loss(es)?|lower(ed)?|warn(s|ed|ing)?|decline[sd]?|sell-?off|tumble[sd]?|crash(es|ed)?|fears?|slows?|concerns?)\b/gi;
+function moodOf(title){ const p = (title.match(POS_RE) || []).length, n = (title.match(NEG_RE) || []).length; return p > n ? "pos" : n > p ? "neg" : "neu"; }
+function ago(ts){ const s = Date.now()/1000 - ts;
+  if(s < 3600) return Math.max(1, Math.round(s/60)) + "m ago"; if(s < 86400) return Math.round(s/3600) + "h ago";
+  if(s < 86400*7) return Math.round(s/86400) + "d ago"; return dateFmt(ts, {month:"short", day:"numeric"}); }
+async function loadNews(){
+  const sym = state.symbol;
+  if(td.news) return renderNews(td.news);
+  $("#news-mood").innerHTML = ""; $("#news").innerHTML = `<li class="muted" style="display:block">Loading headlines…</li>`;
+  try{ const n = await api(`/api/news?symbol=${encodeURIComponent(sym)}`); if(td.sym !== sym) return; td.news = n; if(tab === "news") renderNews(n); }
+  catch(e){ if(td.sym === sym) $("#news").innerHTML = `<li style="display:block"><div class="err"><b>Couldn't load news</b>${esc(e.message)}</div></li>`; }
+}
+function renderNews(items){
+  items = (items || []).filter(n => n.title && n.link).sort((a, b) => (b.providerPublishTime || 0) - (a.providerPublishTime || 0));
+  if(!items.length){ $("#news-mood").innerHTML = ""; $("#news").innerHTML = `<li style="display:block"><div class="err"><b>No recent headlines</b>Yahoo Finance has no news for ${esc(state.symbol)} right now.</div></li>`; return; }
+  const moods = items.map(n => moodOf(n.title)), cnt = k => moods.filter(m => m === k).length;
+  const P = cnt("pos"), N = cnt("neg"), U = cnt("neu"), tot = items.length;
+  const overall = P > N*1.5 ? ["pos","leans positive"] : N > P*1.5 ? ["neg","leans negative"] : ["neu","is mixed"];
+  $("#news-mood").innerHTML = `<div class="mood">Headline mood <span class="tag ${overall[0]}">${overall[1]}</span> <span class="muted">· ${P} positive, ${N} negative, ${U} neutral of ${tot}</span>
+    <div class="stack"><i style="width:${P/tot*100}%;background:var(--up)"></i><i style="width:${U/tot*100}%;background:var(--line)"></i><i style="width:${N/tot*100}%;background:var(--down)"></i></div></div>`;
+  $("#news").innerHTML = items.map((n, i) => {
+    const res = (n.thumbnail?.resolutions || []).slice().sort((a, b) => Math.abs(a.width-240) - Math.abs(b.width-240))[0];
+    const img = res ? `<img class="thumb" src="${esc(res.url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : `<div class="thumb" aria-hidden="true"></div>`;
+    const m = moods[i], tl = {pos:"positive", neg:"negative", neu:"neutral"}[m];
+    const rel = (n.relatedTickers || []).filter(t => t !== state.symbol).slice(0, 5);
+    return `<li>${img}<div style="min-width:0"><a class="t" href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a>
+      <div class="meta"><span>${esc(n.publisher || "")}</span><span>·</span><span>${n.providerPublishTime ? ago(n.providerPublishTime) : ""}</span><span class="tag ${m}">${tl}</span>
+      ${rel.map(t => `<button class="tk" data-load="${esc(t)}" title="Open ${esc(t)}">${esc(t)}</button>`).join("")}</div></div></li>`;
+  }).join("");
+}
+$("#news").addEventListener("click", e => { const b = e.target.closest("[data-load]"); if(b){ scrollTo({top:0, behavior:"smooth"}); load(b.dataset.load); } });
+
+/* ---------- boot ---------- */
+setTab(tab, false);
+markRange();
+buildCharts();
+renderWatch();
+load(state.symbol);
+refreshQuotes();
+setInterval(refreshQuotes, 60000);
+setInterval(() => { if(document.visibilityState==="visible" && state.symbol) api(`/api/quotes?symbols=${state.symbol}`).then(([q]) => {
+  if(q && isNum(q.price) && state.daily){ const s = state.summary; if(s?.price?.regularMarketPrice) s.price.regularMarketPrice = {raw:q.price}; renderQuote(); }
+}).catch(()=>{}); }, 60000);
+</script>
+</body>
+</html>
