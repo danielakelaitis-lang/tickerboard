@@ -1,3 +1,6 @@
+USE HERE https://tickerboard.onrender.com
+
+
 # Tickerboard
 
 A stock tracker website: live prices, candlestick charts with indicators (SMA, EMA, Bollinger, RSI, MACD),
