@@ -1,10 +1,11 @@
-OPEN IN https://tickerboard.onrender.com
-
 # Tickerboard
 
 A stock tracker website: live prices, candlestick charts with indicators (SMA, EMA, Bollinger, RSI, MACD),
-key stats, a rule-based analysis scorecard, financial statements, options and implied volatility, and news.
-Data comes from Yahoo Finance's public endpoints. No API key and no third-party packages are needed.
+a Finviz-style snapshot grid, a rule-based analysis scorecard, analyst rating changes, financial statements,
+earnings and dividends, options and implied volatility, ownership and insider trading, news, and a Markets tab
+with a large-cap heatmap and gainers/losers lists.
+Data comes from Yahoo Finance's public endpoints. No API key is needed. The only package is `curl_cffi`
+(in `requirements.txt`), which keeps Yahoo from rate-limiting the server.
 
 ## Files
 
@@ -17,6 +18,7 @@ Data comes from Yahoo Finance's public endpoints. No API key and no third-party 
 ## Run it on your computer
 
 ```
+pip install -r requirements.txt
 python server.py
 ```
 
@@ -40,9 +42,11 @@ environment variable the host provides.
 ### Good to know
 
 - **Free Render services sleep** after 15 minutes without visitors. The first visit after that takes about 30 to 60 seconds.
-- **Yahoo sometimes rate-limits cloud servers.** If a deployed site shows "Yahoo returned HTTP 429", wait a few
-  minutes or redeploy so the service gets a new IP address. The server caches results (1 to 60 minutes depending
-  on the data) to keep requests low.
+- **Yahoo sometimes rate-limits cloud servers.** The server uses `curl_cffi` to look like a normal browser, retries
+  with backoff, caches results, and shows the last good data if Yahoo refuses. If you still see "Yahoo Finance is
+  busy", wait a minute; if it persists, use Manual Deploy in Render so the service gets a new IP address.
+  Visiting `/api/health` should show `"client": "curl_cffi"`; if it says `urllib`, the build command didn't run
+  `pip install -r requirements.txt`.
 - Only `index.html` and `/api/...` routes are served publicly. The server code itself is never sent to visitors.
 - Data can be delayed up to 15 minutes. The scorecard and news mood tags are automatic, rule-based summaries,
   not financial advice.

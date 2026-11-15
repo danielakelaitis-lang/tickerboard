@@ -3,6 +3,6 @@ services:
     name: tickerboard
     runtime: python
     plan: free
-    buildCommand: "echo no build step"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "python server.py"
     healthCheckPath: /api/health

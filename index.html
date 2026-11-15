@@ -60,13 +60,13 @@ button,input{font:inherit;color:inherit}
 .panel-h h2,.panel-h h3{margin:0;font:700 13px/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 
 /* watchlist */
-.watch{align-self:start;position:sticky;top:72px}
+.watch{align-self:start;position:sticky;top:104px}
 .wl{list-style:none;margin:0;padding:4px}
-.wl li{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;position:relative}
+.wl li{display:grid;grid-template-columns:minmax(0,1fr) 52px auto;grid-template-areas:"sym sp px" "nm sp ch";column-gap:8px;align-items:center;padding:8px 10px;border-radius:7px;cursor:pointer;position:relative}
 .wl li:hover{background:var(--surface-2)} .wl li.on{background:var(--accent-soft)}
-.wl .sym{font:600 13px var(--f-mono)} .wl .nm{grid-column:1;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wl .px{text-align:right;font:500 13px var(--f-mono)} .wl .ch{text-align:right;font:500 11px var(--f-mono)}
-.wl svg{position:absolute;right:92px;top:12px;opacity:.9}
+.wl .sym{grid-area:sym;font:600 13px var(--f-mono)} .wl .nm{grid-area:nm;min-width:0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl .px{grid-area:px;text-align:right;font:500 13px var(--f-mono)} .wl .ch{grid-area:ch;text-align:right;font:500 11px var(--f-mono)}
+.wl svg{grid-area:sp;display:block;opacity:.9}
 .wl .rm{position:absolute;right:-2px;top:-2px;border:0;background:var(--surface);color:var(--muted);border-radius:50%;width:18px;height:18px;line-height:16px;font-size:13px;cursor:pointer;display:none}
 .wl li:hover .rm{display:block}
 .wl-empty{padding:14px;color:var(--muted);font-size:13px}
@@ -215,13 +215,45 @@ select{background:var(--surface-2);border:1px solid var(--line);border-radius:7p
 .mood{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px}
 .mood .stack{height:10px;margin:8px 0 0;max-width:420px}
 
+/* market strip */
+.mstrip{display:flex;overflow-x:auto;border-top:1px solid var(--line);scrollbar-width:none;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mstrip::-webkit-scrollbar{display:none}
+.mstrip button{flex:0 0 auto;display:flex;gap:7px;align-items:baseline;border:0;background:none;padding:6px 14px 6px 0;margin-right:14px;border-right:1px solid var(--line);cursor:pointer;font-size:12px;color:var(--muted);white-space:nowrap}
+.mstrip button:last-child{border-right:0}
+.mstrip button:hover{color:var(--ink)}
+.mstrip b{color:var(--ink);font:500 12px var(--f-mono)} .mstrip .c{font:500 12px var(--f-mono)}
+
+/* snapshot grid */
+.snap{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin:0}
+.snap div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);font-size:12.5px;min-width:0}
+.snap dt{color:var(--muted);white-space:nowrap}
+.snap dd{margin:0;font:500 12.5px var(--f-mono);text-align:right;white-space:nowrap}
+.subh{margin:16px 0 6px;font:700 11px var(--f-display);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+table.ft.compact{min-width:480px}
+table.ft.compact th,table.ft.compact td{padding:6px 10px}
+table.ft tr[data-load]{cursor:pointer}
+table.ft tr[data-load]:hover td{background:var(--accent-soft)}
+.own{padding:14px 16px}
+.own .stack{height:14px;margin:0 0 8px;max-width:560px}
+
+/* heatmap: its own dark surface in both themes, like a trading-floor board */
+.heat{position:relative;margin:10px;overflow:hidden;border-radius:6px;background:#22252d;min-height:200px}
+.hsec{position:absolute;box-sizing:border-box;border:1px solid #16181d}
+.hsec-h{font:700 10.5px/14px var(--f-body);text-transform:uppercase;letter-spacing:.05em;color:#d6d9e0;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#1b1d23;height:16px}
+.htile{position:absolute;border:0;padding:2px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45);color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;font-family:var(--f-mono);line-height:1.15;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.htile:hover,.htile:focus-visible{box-shadow:inset 0 0 0 2px #fff;z-index:2;outline:none}
+.htile b{font-weight:600}
+.htile span{font-size:11px;opacity:.92}
+.heat-scale{display:flex;gap:2px;align-items:center;font:11px var(--f-mono);color:var(--muted)}
+.heat-scale i{width:24px;height:12px;display:inline-block;border-radius:2px}
+
 @media (max-width:1100px){.grid2{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:600px){.news li{grid-template-columns:1fr}.news .thumb{width:100%;height:160px}}
 @media (max-width:820px){
   .shell{grid-template-columns:minmax(0,1fr)}
   .watch{position:static}
   .wl{display:flex;overflow-x:auto;gap:4px}
-  .wl li{min-width:150px}
+  .wl li{min-width:160px;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"sym px" "nm ch"}
   .wl svg{display:none}
   .brand span,#updated,.top .spacer{display:none}
   #c-main{height:320px}
@@ -241,7 +273,9 @@ select{background:var(--surface-2);border:1px solid var(--line);border-radius:7p
   <div class="spacer"></div>
   <span class="muted" id="updated" style="font-size:12px"></span>
   <button class="iconbtn" id="theme" title="Switch light / dark">◐ Theme</button>
-</div></header>
+</div>
+<div class="mstrip" id="mstrip" aria-label="Market overview"></div>
+</header>
 
 <div class="shell">
   <aside class="panel watch">
@@ -265,8 +299,11 @@ select{background:var(--surface-2);border:1px solid var(--line);border-radius:7p
     <nav class="tabs" id="tabs" role="tablist" aria-label="Sections">
       <button data-tab="overview" class="on" role="tab">Overview</button>
       <button data-tab="financials" role="tab">Financials</button>
+      <button data-tab="earnings" role="tab">Earnings</button>
       <button data-tab="options" role="tab">Options &amp; IV</button>
+      <button data-tab="ownership" role="tab">Ownership</button>
       <button data-tab="news" role="tab">News</button>
+      <button data-tab="markets" role="tab">Markets</button>
     </nav>
 
     <div id="tab-overview" class="tabpane">
@@ -319,8 +356,8 @@ select{background:var(--surface-2);border:1px solid var(--line);border-radius:7p
     </div>
 
     <section class="panel">
-      <div class="panel-h"><h3>Key statistics</h3></div>
-      <dl class="stats" id="stats"></dl>
+      <div class="panel-h"><h3>Snapshot</h3><span class="muted" style="font-size:11px">green and red show direction</span></div>
+      <dl class="snap" id="stats"></dl>
     </section>
 
     <div class="grid2">
@@ -342,7 +379,9 @@ select{background:var(--surface-2);border:1px solid var(--line);border-radius:7p
       <section class="panel"><div class="panel-h"><h3>Cash flow</h3></div><div class="tablewrap" id="fin-cashflow"></div></section>
     </div>
 
+    <div id="tab-earnings" class="tabpane" hidden></div>
     <div id="tab-options" class="tabpane" hidden></div>
+    <div id="tab-ownership" class="tabpane" hidden></div>
 
     <div id="tab-news" class="tabpane" hidden>
       <section class="panel">
@@ -351,9 +390,22 @@ select{background:var(--surface-2);border:1px solid var(--line);border-radius:7p
         <ul class="news" id="news"></ul>
       </section>
     </div>
+
+    <div id="tab-markets" class="tabpane" hidden>
+      <section class="panel">
+        <div class="panel-h"><h3>Large-cap heatmap</h3>
+          <div class="heat-scale" aria-label="Color scale"><span>-3%</span><i style="background:rgb(230,55,60)"></i><i style="background:rgb(148,62,72)"></i><i style="background:rgb(65,69,84)"></i><i style="background:rgb(57,125,87)"></i><i style="background:rgb(48,180,90)"></i><span>+3%</span></div></div>
+        <div class="heat" id="heat"></div>
+        <p class="muted" style="font-size:11.5px;margin:0 14px 12px">Box size = market cap, color = today's change. Click a box to open that stock.</p>
+      </section>
+      <section class="panel">
+        <div class="toolbar"><div class="seg" id="scr" role="group" aria-label="Stock lists"></div></div>
+        <div class="tablewrap" id="scr-table"></div>
+      </section>
+    </div>
   </main>
 </div>
-<footer>Data from Yahoo Finance via the local server, may be delayed up to 15 minutes. The scorecard is an automatic rule-based summary for learning and research, not financial advice.</footer>
+<footer>Market data from Yahoo Finance, may be delayed up to 15 minutes. The scorecard is an automatic rule-based summary for learning and research, not financial advice.</footer>
 
 <script>
 "use strict";
@@ -476,6 +528,7 @@ function parseChart(j){
   const c = rows.map(x=>x.c), h = rows.map(x=>x.h), l = rows.map(x=>x.l);
   const s20=sma(c,20), sd=stdev(c,20,s20), mc=macd(c);
   return { meta:r.meta, rows, c,
+    divs:Object.values(r.events?.dividends || {}).map(x => ({t:x.date, amount:x.amount})).sort((a, b) => a.t-b.t),
     sma20:s20, sma50:sma(c,50), sma200:sma(c,200), ema21:ema(c,21),
     bbU:s20.map((m,i)=>m==null?null:m+2*sd[i]), bbL:s20.map((m,i)=>m==null?null:m-2*sd[i]),
     rsi:rsi(c), macd:mc.m, sig:mc.sig, hist:mc.hist, atr:atr(h,l,c) };
@@ -599,29 +652,6 @@ function renderTech(){
   $("#tech").innerHTML = items.map(([k,v])=>`<div class="stat"><dt>${k}</dt><dd>${v}</dd></div>`).join("");
   return {vol};
 }
-function renderStats(){
-  const s = state.summary || {}, sd = s.summaryDetail||{}, ks = s.defaultKeyStatistics||{}, fd = s.financialData||{}, p = s.price||{};
-  const items = [
-    ["Market cap", big(raw(sd.marketCap) ?? raw(p.marketCap))],
-    ["P/E (TTM)", fmt(raw(sd.trailingPE))], ["Forward P/E", fmt(raw(sd.forwardPE) ?? raw(ks.forwardPE))],
-    ["PEG ratio", fmt(raw(ks.pegRatio) ?? raw(ks.trailingPegRatio))], ["Price / book", fmt(raw(ks.priceToBook))],
-    ["Price / sales", fmt(raw(sd.priceToSalesTrailing12Months))], ["EPS (TTM)", fmt(raw(ks.trailingEps))], ["Forward EPS", fmt(raw(ks.forwardEps))],
-    ["Revenue (TTM)", big(raw(fd.totalRevenue))], ["Revenue growth", pct(raw(fd.revenueGrowth),1)], ["Earnings growth", pct(raw(fd.earningsGrowth),1)],
-    ["Gross margin", pct(raw(fd.grossMargins),1,false)], ["Operating margin", pct(raw(fd.operatingMargins),1,false)], ["Profit margin", pct(raw(fd.profitMargins),1,false)],
-    ["Return on equity", pct(raw(fd.returnOnEquity),1,false)], ["Return on assets", pct(raw(fd.returnOnAssets),1,false)],
-    ["Debt / equity", isNum(raw(fd.debtToEquity)) ? (raw(fd.debtToEquity)/100).toFixed(2) : "—"], ["Current ratio", fmt(raw(fd.currentRatio))],
-    ["Free cash flow", big(raw(fd.freeCashflow))], ["Total cash", big(raw(fd.totalCash))], ["Total debt", big(raw(fd.totalDebt))],
-    ["Dividend yield", pct(raw(sd.dividendYield) ?? raw(sd.trailingAnnualDividendYield),2,false)], ["Payout ratio", pct(raw(sd.payoutRatio),1,false)],
-    ["Beta (5Y)", fmt(raw(sd.beta) ?? raw(ks.beta))], ["Shares out", big(raw(ks.sharesOutstanding))], ["Short % float", pct(raw(ks.shortPercentOfFloat),2,false)],
-    ["Day range", isNum(raw(sd.dayLow)) ? `${fmt(raw(sd.dayLow))} – ${fmt(raw(sd.dayHigh))}` : "—"],
-    ["Volume", big(raw(sd.volume) ?? raw(p.regularMarketVolume))], ["Avg volume (3M)", big(raw(sd.averageVolume))],
-  ];
-  const ne = s.calendarEvents?.earnings?.earningsDate?.[0];
-  if(ne && raw(ne)) items.push(["Next earnings", new Date(raw(ne)*1000).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})]);
-  const shown = items.filter(([,v])=>v!=="—" && !String(v).startsWith("—"));
-  $("#stats").innerHTML = shown.length ? shown.map(([k,v])=>`<div class="stat"><dt>${k}</dt><dd>${v}</dd></div>`).join("")
-    : `<div class="err" style="grid-column:1/-1">No fundamental data for this symbol. ETFs, indexes and crypto only have price-based stats.</div>`;
-}
 function renderReco(price){
   const s = state.summary || {}, fd = s.financialData || {}, t = s.recommendationTrend?.trend?.[0];
   let h = "";
@@ -634,6 +664,7 @@ function renderReco(price){
   }
   const lo = raw(fd.targetLowPrice), mean = raw(fd.targetMeanPrice), hi = raw(fd.targetHighPrice);
   if(isNum(mean)) h += `<dl class="target"><div><dt>Low target</dt><dd>${fmt(lo)}</dd></div><div><dt>Mean target</dt><dd>${fmt(mean)}</dd><dd class="${cls(mean/price-1)}" style="font-size:12px">${pct(mean/price-1,1)}</dd></div><div><dt>High target</dt><dd>${fmt(hi)}</dd></div></dl>`;
+  h += ratingChanges();
   $("#reco").innerHTML = h || `<div class="muted">No analyst coverage for this symbol.</div>`;
 }
 function renderProfile(){
@@ -752,7 +783,7 @@ async function load(symbol){
     state.intraday = null;
     if(state.range==="1D"||state.range==="5D") await loadIntraday(id);
     if(id !== state.loadId) return;
-    const price = renderQuote(); renderPerf(); const {vol} = renderTech(); renderStats(); renderReco(price); renderProfile();
+    const price = renderQuote(); renderPerf(); const {vol} = renderTech(); renderSnapshot(); renderReco(price); renderProfile();
     renderScore(analyze(price, vol));
     renderChart(true);
     $("#loading").hidden = true;
@@ -781,18 +812,17 @@ function spark(arr, up){
 function renderWatch(){
   if(!watch.length){ $("#wl").innerHTML = `<li class="wl-empty">Search for a stock and press “Add to watchlist”.</li>`; return; }
   $("#wl").innerHTML = watch.map(s => { const q = quotes[s] || {};
-    const ch = isNum(q.price)&&isNum(q.prev) ? q.price/q.prev-1 : null;
+    const ch = isNum(q.changePct) ? q.changePct/100 : isNum(q.price)&&isNum(q.prev) ? q.price/q.prev-1 : null;
     return `<li data-s="${esc(s)}" class="${s===state.symbol?"on":""}" tabindex="0">
       <span class="sym">${esc(s)}</span><span class="px">${fmt(q.price)}</span>
       <span class="nm">${esc(q.name||"")}</span><span class="ch ${cls(ch)}">${pct(ch)}</span>
       ${spark(q.spark, (ch??0)>=0)}<button class="rm" data-rm="${esc(s)}" title="Remove ${esc(s)}" aria-label="Remove ${esc(s)}">×</button></li>`; }).join("");
 }
 async function refreshQuotes(){
-  if(!watch.length) return;
-  try{
-    const list = await api(`/api/quotes?symbols=${encodeURIComponent(watch.join(","))}`);
-    list.forEach(q => { if(!q.error) quotes[q.symbol] = q; });
-    renderWatch();
+  try{ // one call covers the market strip and the whole watchlist
+    const list = await api(`/api/quotes?market=1&symbols=${encodeURIComponent(watch.join(","))}`);
+    list.forEach(q => { if(isNum(q.price)) quotes[q.symbol] = q; });
+    renderWatch(); renderStrip();
   }catch{}
 }
 $("#wl").addEventListener("click", e => {
@@ -860,7 +890,7 @@ $("#theme").onclick = () => {
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
 
 /* ---------- tabs ---------- */
-const TABS = ["overview","financials","options","news"];
+const TABS = ["overview","financials","earnings","options","ownership","news","markets"];
 let tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
 let td = { sym:null, fin:{}, opt:{} };
 function setTab(t, updateHash = true){
@@ -873,8 +903,11 @@ function setTab(t, updateHash = true){
 $("#tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if(b) setTab(b.dataset.tab); });
 addEventListener("hashchange", () => { const h = location.hash.slice(1); if(TABS.includes(h) && h !== tab) setTab(h, false); });
 function loadTab(){
+  if(tab === "markets") return loadMarkets();
   if(!state.daily || td.sym !== state.symbol) return;
   if(tab === "financials") loadFinancials();
+  else if(tab === "earnings") loadSet("earnings", renderEarnings);
+  else if(tab === "ownership") loadSet("ownership", renderOwnership);
   else if(tab === "options") loadOptions(td.optSel);
   else if(tab === "news") loadNews();
 }
@@ -904,7 +937,7 @@ function barChart(label, labels, series, yfmt){
     const cx = PL + gw*(i+.5);
     series.forEach((se, j) => { const v = se.values[i]; if(!isNum(v)) return;
       const x = cx - bw*series.length/2 + j*bw, top = Math.min(y(0), y(v)), h = Math.max(1, Math.abs(y(v)-y(0)));
-      const c = typeof se.color === "function" ? se.color(v) : se.color;
+      const c = typeof se.color === "function" ? se.color(v, i) : se.color;
       out += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${h.toFixed(1)}" rx="2" style="fill:${c}"><title>${esc(se.name)} · ${esc(l)}: ${yfmt(v)}</title></rect>`; });
     out += `<text x="${cx.toFixed(1)}" y="${CH-8}" text-anchor="middle">${esc(l)}</text>`;
   });
@@ -1187,6 +1220,248 @@ function renderNews(items){
   }).join("");
 }
 $("#news").addEventListener("click", e => { const b = e.target.closest("[data-load]"); if(b){ scrollTo({top:0, behavior:"smooth"}); load(b.dataset.load); } });
+
+/* ---------- shared helpers for the newer tabs ---------- */
+const G = v => isNum(v) ? `<span class="${cls(v)}">${pct(v,2)}</span>` : "—";
+const P2 = v => pct(v, 2, false);
+const n0 = v => isNum(v) ? Math.round(v).toLocaleString() : "—";
+const noData = (t, m) => `<section class="panel"><div class="err"><b>${t}</b>${m}</div></section>`;
+const tbl = (head, rows, extra = "") => `<table class="ft ${extra}"><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+const path = (o, p) => p.split(".").reduce((x, k) => x == null ? x : x[k], o);
+
+/* ---------- Finviz-style snapshot grid ---------- */
+function renderSnapshot(){
+  const s = state.summary || {}, sd = s.summaryDetail || {}, ks = s.defaultKeyStatistics || {}, fd = s.financialData || {}, p = s.price || {}, ap = s.assetProfile || {};
+  const d = state.daily, i = d.c.length-1, last = d.c[i];
+  const per = k => (s.earningsTrend?.trend || []).find(t => t.period === k) || {};
+  const mcap = raw(sd.marketCap) ?? raw(p.marketCap), fcf = raw(fd.freeCashflow), cps = raw(fd.totalCashPerShare);
+  const price = raw(p.regularMarketPrice) ?? last, prev = raw(sd.previousClose) ?? raw(p.regularMarketPreviousClose);
+  const vol = raw(sd.volume) ?? raw(p.regularMarketVolume), avgv = raw(sd.averageVolume);
+  const hi52 = raw(sd.fiftyTwoWeekHigh), lo52 = raw(sd.fiftyTwoWeekLow);
+  const rng = k => { const r = d.rows.slice(-k); return r.reduce((a, x) => a + (x.h-x.l)/x.c, 0)/r.length; };
+  const yIdx = d.rows.findIndex(r => new Date(r.t*1000).getUTCFullYear() === new Date(d.rows[i].t*1000).getUTCFullYear());
+  const ytd = yIdx > 0 ? last/d.c[yIdx-1]-1 : null;
+  const ne = raw(s.calendarEvents?.earnings?.earningsDate?.[0]);
+  const vs = m => isNum(m) ? G(last/m-1) : "—";
+  const items = [
+    ["Market Cap", big(mcap)], ["Income", big(raw(ks.netIncomeToCommon))], ["Sales", big(raw(fd.totalRevenue))], ["Enterprise Value", big(raw(ks.enterpriseValue))],
+    ["Book/sh", fmt(raw(ks.bookValue))], ["Cash/sh", fmt(cps)], ["Dividend", fmt(raw(sd.dividendRate))], ["Dividend %", P2(raw(sd.dividendYield))],
+    ["Payout", P2(raw(sd.payoutRatio))], ["Employees", n0(ap.fullTimeEmployees)], ["Recom", fmt(raw(fd.recommendationMean))], ["Target Price", fmt(raw(fd.targetMeanPrice))],
+    ["P/E", fmt(raw(sd.trailingPE))], ["Forward P/E", fmt(raw(sd.forwardPE) ?? raw(ks.forwardPE))], ["PEG", fmt(raw(ks.pegRatio) ?? raw(ks.trailingPegRatio))], ["P/S", fmt(raw(sd.priceToSalesTrailing12Months))],
+    ["P/B", fmt(raw(ks.priceToBook))], ["P/C", cps ? fmt(price/cps) : "—"], ["P/FCF", fcf > 0 && mcap ? fmt(mcap/fcf) : "—"], ["EV/EBITDA", fmt(raw(ks.enterpriseToEbitda))],
+    ["EV/Sales", fmt(raw(ks.enterpriseToRevenue))], ["Quick Ratio", fmt(raw(fd.quickRatio))], ["Current Ratio", fmt(raw(fd.currentRatio))], ["Debt/Eq", isNum(raw(fd.debtToEquity)) ? (raw(fd.debtToEquity)/100).toFixed(2) : "—"],
+    ["EPS (ttm)", fmt(raw(ks.trailingEps))], ["EPS next Q", fmt(raw(path(per("+1q"), "earningsEstimate.avg")))], ["EPS this Y", G(raw(per("0y").growth))], ["EPS next Y", G(raw(per("+1y").growth))],
+    ["EPS next 5Y", G(raw(per("+5y").growth) ?? raw(per("LTG").growth))], ["EPS Q/Q", G(raw(fd.earningsGrowth))], ["Sales Q/Q", G(raw(fd.revenueGrowth))], ["Earnings", ne ? dateFmt(ne, {month:"short", day:"numeric"}) : "—"],
+    ["Insider Own", P2(raw(ks.heldPercentInsiders))], ["Inst Own", P2(raw(ks.heldPercentInstitutions))], ["Shs Outstand", big(raw(ks.sharesOutstanding))], ["Shs Float", big(raw(ks.floatShares))],
+    ["Short Float", P2(raw(ks.shortPercentOfFloat))], ["Short Ratio", fmt(raw(ks.shortRatio))], ["Short Interest", big(raw(ks.sharesShort))], ["ROA", G(raw(fd.returnOnAssets))],
+    ["ROE", G(raw(fd.returnOnEquity))], ["Gross Margin", G(raw(fd.grossMargins))], ["Oper. Margin", G(raw(fd.operatingMargins))], ["Profit Margin", G(raw(fd.profitMargins))],
+    ["Perf Week", G(retAt(d,5))], ["Perf Month", G(retAt(d,21))], ["Perf Quarter", G(retAt(d,63))], ["Perf Half Y", G(retAt(d,126))],
+    ["Perf Year", G(retAt(d,252))], ["Perf YTD", G(ytd)], ["52W Range", isNum(lo52) ? `${fmt(lo52)} - ${fmt(hi52)}` : "—"], ["52W High", hi52 ? G(price/hi52-1) : "—"],
+    ["52W Low", lo52 ? G(price/lo52-1) : "—"], ["Beta", fmt(raw(sd.beta) ?? raw(ks.beta))], ["ATR (14)", fmt(d.atr[i])], ["Volatility W/M", `${P2(rng(5))} ${P2(rng(21))}`],
+    ["RSI (14)", isNum(d.rsi[i]) ? d.rsi[i].toFixed(2) : "—"], ["SMA20", vs(d.sma20[i])], ["SMA50", vs(d.sma50[i])], ["SMA200", vs(d.sma200[i])],
+    ["Rel Volume", vol && avgv ? (vol/avgv).toFixed(2) : "—"], ["Avg Volume", big(avgv)], ["Volume", n0(vol)], ["Prev Close", fmt(prev)],
+    ["Price", fmt(price)], ["Change", prev ? G(price/prev-1) : "—"],
+  ];
+  $("#stats").innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+}
+
+/* ---------- analyst rating changes (Finviz shows these on every quote) ---------- */
+function ratingChanges(){
+  const hist = (state.summary?.upgradeDowngradeHistory?.history || []).slice(0, 12);
+  if(!hist.length) return "";
+  const ACT = {up:["Upgrade","up"], down:["Downgrade","down"], init:["Initiated",""], main:["Maintains",""], reit:["Reiterated",""]};
+  const rows = hist.map(h => { const [a, c] = ACT[h.action] || [h.action || "", ""];
+    const rating = h.fromGrade && h.fromGrade !== h.toGrade ? `${esc(h.fromGrade)} → ${esc(h.toGrade)}` : esc(h.toGrade || "");
+    const pt = h.currentPriceTarget > 0 ? (h.priorPriceTarget > 0 && h.priorPriceTarget !== h.currentPriceTarget ? `${fmt(h.priorPriceTarget)} → ${fmt(h.currentPriceTarget)}` : fmt(h.currentPriceTarget)) : "—";
+    return `<tr><td>${dateFmt(h.epochGradeDate, {month:"short", day:"numeric", year:"2-digit"})}</td><td class="${c}">${a}</td><td style="text-align:left">${esc(h.firm)}</td><td style="text-align:left">${rating}</td><td>${pt}</td></tr>`; });
+  return `<h4 class="subh">Recent rating changes</h4><div class="tablewrap">${tbl(["Date","Action","Firm","Rating","Price target"], rows, "compact")}</div>`;
+}
+
+/* ---------- market strip ---------- */
+const MLAB = {"^GSPC":"S&P 500", "^IXIC":"Nasdaq", "^DJI":"Dow", "^RUT":"Russell 2000", "^VIX":"VIX", "^TNX":"10Y yield", "CL=F":"Crude oil", "GC=F":"Gold", "BTC-USD":"Bitcoin", "EURUSD=X":"EUR/USD"};
+function renderStrip(){
+  $("#mstrip").innerHTML = Object.keys(MLAB).map(s => { const q = quotes[s] || {};
+    const ch = isNum(q.changePct) ? q.changePct/100 : isNum(q.price) && isNum(q.prev) ? q.price/q.prev-1 : null;
+    const px = !isNum(q.price) ? "—" : s === "^TNX" ? q.price.toFixed(2) + "%" : s === "EURUSD=X" ? q.price.toFixed(4) : fmt(q.price);
+    return `<button data-s="${esc(s)}" title="Open ${esc(MLAB[s])}">${MLAB[s]} <b>${px}</b><span class="c ${cls(ch)}">${pct(ch)}</span></button>`; }).join("");
+}
+$("#mstrip").addEventListener("click", e => { const b = e.target.closest("button[data-s]"); if(b){ load(b.dataset.s); setTab("overview"); } });
+
+/* ---------- generic loader for summary-based tabs ---------- */
+async function loadSet(kind, render){
+  const sym = state.symbol, el = $("#tab-"+kind);
+  if(td[kind]) return render(td[kind]);
+  el.innerHTML = `<section class="panel"><div class="err">Loading…</div></section>`;
+  try{
+    const j = await api(`/api/summary?symbol=${encodeURIComponent(sym)}&set=${kind}`);
+    if(td.sym !== sym) return;
+    td[kind] = j.quoteSummary?.result?.[0] || {};
+    if(tab === kind) render(td[kind]);
+  }catch(e){
+    if(td.sym !== sym) return;
+    if(/not found/i.test(e.message)){ td[kind] = {}; return render({}); }
+    el.innerHTML = noData("Couldn't load this tab", esc(e.message) + ".");
+  }
+}
+
+/* ---------- earnings & dividends tab ---------- */
+function renderEarnings(r){
+  const el = $("#tab-earnings"), d = state.daily;
+  const hist = (r.earningsHistory?.history || []).filter(h => isNum(raw(h.epsActual)) && raw(h.quarter)).sort((a, b) => raw(a.quarter)-raw(b.quarter));
+  const trend = (r.earningsTrend?.trend || []).filter(t => ["0q","+1q","0y","+1y"].includes(t.period));
+  const fq = r.earnings?.financialsChart?.quarterly || [];
+  const ce = r.calendarEvents?.earnings || {}, divs = d.divs || [];
+  if(!hist.length && !trend.length && !divs.length){ el.innerHTML = noData("No earnings data", "ETFs, funds, indexes and crypto don't report earnings or pay regular dividends."); return; }
+  const next = raw(ce.earningsDate?.[0]);
+  const beats = hist.filter(h => raw(h.epsActual) >= raw(h.epsEstimate)).length;
+  const avgS = hist.length ? hist.reduce((a, h) => a + (raw(h.surprisePercent) || 0), 0)/hist.length : null;
+  const tiles = [["Next earnings", next ? dateFmt(next) : "—"], ["EPS estimate", fmt(raw(ce.earningsAverage))],
+    ["EPS estimate range", isNum(raw(ce.earningsLow)) ? `${fmt(raw(ce.earningsLow))} – ${fmt(raw(ce.earningsHigh))}` : "—"],
+    ["Revenue estimate", big(raw(ce.revenueAverage))], ["Beat rate", hist.length ? `${beats} of ${hist.length} quarters` : "—"],
+    ["Avg EPS surprise", isNum(avgS) ? G(avgS) : "—"]];
+  const qL = hist.map(h => dateFmt(raw(h.quarter), {month:"short", year:"2-digit"}));
+  const est = hist.map(h => raw(h.epsEstimate)), act = hist.map(h => raw(h.epsActual));
+  let charts = "";
+  if(hist.length) charts += ccard("EPS: estimate vs actual", legend([["Estimate","var(--c-bb)"],["Beat","var(--up)"],["Miss","var(--down)"]]),
+    barChart("EPS estimate versus actual", qL, [{name:"Estimate", color:"var(--c-bb)", values:est}, {name:"Actual", color:(v, i) => v >= est[i] ? "var(--up)" : "var(--down)", values:act}], v => fmt(v)));
+  if(fq.length) charts += ccard("Quarterly revenue & earnings", legend([["Revenue","var(--accent)"],["Earnings","var(--up)"]]),
+    barChart("Quarterly revenue and earnings", fq.map(q => q.date), [{name:"Revenue", color:"var(--accent)", values:fq.map(q => raw(q.revenue))}, {name:"Earnings", color:v => v < 0 ? "var(--down)" : "var(--up)", values:fq.map(q => raw(q.earnings))}], bigAx));
+  let divHtml = "";
+  if(divs.length){
+    const byYear = {}; divs.forEach(x => { const y = new Date(x.t*1000).getUTCFullYear(); byYear[y] = (byYear[y] || 0) + x.amount; });
+    const yrs = Object.keys(byYear).sort(), thisYear = String(new Date().getUTCFullYear());
+    charts += ccard("Dividends per share by year", legend([[yrs.includes(thisYear) ? `Paid (${thisYear} so far)` : "Paid", "var(--c-ema)"]]),
+      barChart("Dividends per year", yrs, [{name:"Dividends", color:"var(--c-ema)", values:yrs.map(y => byYear[y])}], v => fmt(v)));
+    const recent = divs.slice(-12).reverse();
+    divHtml = `<section class="panel"><div class="panel-h"><h3>Dividend history</h3><span class="muted" style="font-size:11px">last 5 years</span></div><div class="tablewrap">${tbl(["Ex-dividend date","Amount","Change"],
+      recent.map((x, k) => { const prior = recent[k+1]; const c = prior ? x.amount/prior.amount-1 : null;
+        return `<tr><td>${dateFmt(x.t)}</td><td>${x.amount.toFixed(4)}</td><td>${isNum(c) && Math.abs(c) > 0.0005 ? G(c) : "—"}</td></tr>`; }), "compact")}</div></section>`;
+  }
+  let trendHtml = "";
+  if(trend.length){
+    const PER = {"0q":"Current qtr", "+1q":"Next qtr", "0y":"Current year", "+1y":"Next year"};
+    const R = (t, p) => raw(path(t, p));
+    const rows = [
+      ["Period ending", t => t.endDate ? new Date(t.endDate+"T00:00:00Z").toLocaleDateString(undefined, {month:"short", year:"numeric", timeZone:"UTC"}) : "—"],
+      ["EPS estimate", t => fmt(R(t,"earningsEstimate.avg"))], ["EPS low", t => fmt(R(t,"earningsEstimate.low"))], ["EPS high", t => fmt(R(t,"earningsEstimate.high"))],
+      ["Year-ago EPS", t => fmt(R(t,"earningsEstimate.yearAgoEps"))], ["EPS analysts", t => n0(R(t,"earningsEstimate.numberOfAnalysts"))], ["EPS growth", t => G(R(t,"earningsEstimate.growth") ?? raw(t.growth))],
+      ["Revenue estimate", t => big(R(t,"revenueEstimate.avg"))], ["Revenue low", t => big(R(t,"revenueEstimate.low"))], ["Revenue high", t => big(R(t,"revenueEstimate.high"))],
+      ["Revenue growth", t => G(R(t,"revenueEstimate.growth"))],
+      ["EPS estimate 7 days ago", t => fmt(R(t,"epsTrend.7daysAgo"))], ["EPS estimate 30 days ago", t => fmt(R(t,"epsTrend.30daysAgo"))], ["EPS estimate 90 days ago", t => fmt(R(t,"epsTrend.90daysAgo"))],
+      ["Revisions up (30d)", t => n0(R(t,"epsRevisions.upLast30days"))], ["Revisions down (30d)", t => n0(R(t,"epsRevisions.downLast30days") ?? R(t,"epsRevisions.downLast30Days"))],
+    ];
+    trendHtml = `<section class="panel"><div class="panel-h"><h3>Analyst estimates</h3></div><div class="tablewrap">${tbl(["", ...trend.map(t => PER[t.period])],
+      rows.map(([k, f]) => `<tr><td>${k}</td>${trend.map(t => `<td>${f(t)}</td>`).join("")}</tr>`))}</div></section>`;
+  }
+  const histHtml = hist.length ? `<section class="panel"><div class="panel-h"><h3>Earnings history</h3></div><div class="tablewrap">${tbl(["Quarter","EPS estimate","EPS actual","Difference","Surprise"],
+    hist.slice().reverse().map(h => `<tr><td>${dateFmt(raw(h.quarter), {month:"short", year:"numeric"})}</td><td>${fmt(raw(h.epsEstimate))}</td><td>${fmt(raw(h.epsActual))}</td><td>${isNum(raw(h.epsDifference)) ? `<span class="${cls(raw(h.epsDifference))}">${fmt(raw(h.epsDifference))}</span>` : "—"}</td><td>${G(raw(h.surprisePercent))}</td></tr>`), "compact")}</div></section>` : "";
+  el.innerHTML = `<section class="panel"><dl class="stats">${tiles.map(([k, v]) => `<div class="stat"><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>${charts ? `<div class="cards4">${charts}</div>` : ""}</section>
+    <div class="grid2">${trendHtml || ""}${histHtml || ""}</div>${divHtml}`;
+}
+
+/* ---------- ownership & insiders tab ---------- */
+function renderOwnership(r){
+  const el = $("#tab-ownership");
+  const mh = r.majorHoldersBreakdown || {}, ns = r.netSharePurchaseActivity || {};
+  const inst = r.institutionOwnership?.ownershipList || [], funds = r.fundOwnership?.ownershipList || [];
+  const tx = r.insiderTransactions?.transactions || [], ih = r.insiderHolders?.holders || [];
+  if(!raw(mh.institutionsPercentHeld) && !inst.length && !tx.length){ el.innerHTML = noData("No ownership data", "Ownership and insider filings are only reported for individual companies."); return; }
+  const ins = raw(mh.insidersPercentHeld) || 0, inn = raw(mh.institutionsPercentHeld) || 0, pub = Math.max(0, 1-ins-inn);
+  const tiles = [["Insiders own", P2(ins)], ["Institutions own", P2(inn)], ["Institutions, % of float", P2(raw(mh.institutionsFloatPercentHeld))],
+    ["Institutions", n0(raw(mh.institutionsCount))], ["Insider buys (6 mo)", `${n0(raw(ns.buyInfoCount))} · ${big(raw(ns.buyInfoShares))} sh`],
+    ["Insider sells (6 mo)", `${n0(raw(ns.sellInfoCount))} · ${big(raw(ns.sellInfoShares))} sh`], ["Net insider shares (6 mo)", isNum(raw(ns.netInfoShares)) ? `<span class="${cls(raw(ns.netInfoShares))}">${big(raw(ns.netInfoShares))}</span>` : "—"],
+    ["Net change, insider stake", G(raw(ns.netPercentInsiderShares))]];
+  const bar = `<div class="own"><div class="stack"><i style="width:${inn*100}%;background:var(--accent)"></i><i style="width:${ins*100}%;background:var(--c-sma20)"></i><i style="width:${pub*100}%;background:var(--line)"></i></div>
+    <div class="reco-legend"><span style="--c:var(--accent)">Institutions ${P2(inn)}</span><span style="--c:var(--c-sma20)">Insiders ${P2(ins)}</span><span style="--c:var(--line)">Public / other ${P2(pub)}</span></div></div>`;
+  const holders = list => tbl(["Holder","Shares","Value","% held","% change","Reported"], list.slice(0, 10).map(h =>
+    `<tr><td>${esc(h.organization)}</td><td>${big(raw(h.position))}</td><td>${big(raw(h.value))}</td><td>${P2(raw(h.pctHeld))}</td><td>${G(raw(h.pctChange))}</td><td>${raw(h.reportDate) ? dateFmt(raw(h.reportDate), {month:"short", year:"numeric"}) : "—"}</td></tr>`), "compact");
+  const kind = t => { const s = (t || "").toLowerCase();
+    return /sale|sell/.test(s) ? ["Sale","down"] : /purchase|buy/.test(s) ? ["Buy","up"] : /gift/.test(s) ? ["Gift",""] : /option|exercise/.test(s) ? ["Option exercise",""] : /award|grant/.test(s) ? ["Award",""] : [t ? "Other" : "Filing",""]; };
+  const txRows = tx.slice(0, 25).map(t => { const [k, c] = kind(t.transactionText);
+    return `<tr><td>${esc(t.filerName)}</td><td>${esc(t.filerRelation || "")}</td><td>${raw(t.startDate) ? dateFmt(raw(t.startDate), {month:"short", day:"numeric", year:"2-digit"}) : "—"}</td><td class="${c}">${k}</td><td>${n0(raw(t.shares))}</td><td>${big(raw(t.value))}</td><td style="text-align:left;white-space:normal;min-width:180px" class="muted">${esc(t.transactionText || "")}</td></tr>`; });
+  const ihRows = ih.slice(0, 12).map(h => `<tr><td>${esc(h.name)}</td><td>${esc(h.relation || "")}</td><td>${esc(h.transactionDescription || "")}</td><td>${raw(h.latestTransDate) ? dateFmt(raw(h.latestTransDate), {month:"short", year:"numeric"}) : "—"}</td><td>${n0(raw(h.positionDirect))}</td></tr>`);
+  el.innerHTML = `<section class="panel"><dl class="stats">${tiles.map(([k, v]) => `<div class="stat"><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>${bar}</section>
+    <div class="grid2">
+      ${inst.length ? `<section class="panel"><div class="panel-h"><h3>Top institutional holders</h3></div><div class="tablewrap">${holders(inst)}</div></section>` : ""}
+      ${funds.length ? `<section class="panel"><div class="panel-h"><h3>Top mutual fund holders</h3></div><div class="tablewrap">${holders(funds)}</div></section>` : ""}
+    </div>
+    ${txRows.length ? `<section class="panel"><div class="panel-h"><h3>Insider trading</h3><span class="muted" style="font-size:11px">latest SEC Form 4 filings</span></div><div class="tablewrap">${tbl(["Insider","Relationship","Date","Transaction","Shares","Value","Details"], txRows, "compact")}</div></section>` : ""}
+    ${ihRows.length ? `<section class="panel"><div class="panel-h"><h3>Insider holdings</h3></div><div class="tablewrap">${tbl(["Insider","Relationship","Latest transaction","Date","Shares held"], ihRows, "compact")}</div></section>` : ""}`;
+}
+
+/* ---------- markets tab: heatmap + screeners ---------- */
+const mk = { heat:null, heatT:0, scr:"day_gainers", lists:{} };
+const SCR = [["day_gainers","Top gainers"], ["day_losers","Top losers"], ["most_actives","Most active"], ["small_cap_gainers","Small-cap gainers"], ["undervalued_growth_stocks","Undervalued growth"], ["growth_technology_stocks","Growth tech"]];
+function squarify(items, x, y, w, h){
+  const out = [], total = items.reduce((a, b) => a + b.v, 0);
+  if(!total || w <= 0 || h <= 0) return out;
+  const scale = w*h/total;
+  let rest = items.map(it => ({it, a:it.v*scale}));
+  const worst = (row, s) => { const sum = row.reduce((a, r) => a + r.a, 0), mx = Math.max(...row.map(r => r.a)), mn = Math.min(...row.map(r => r.a));
+    return Math.max(s*s*mx/(sum*sum), sum*sum/(s*s*mn)); };
+  while(rest.length){
+    const short = Math.min(w, h); let row = [rest[0]], best = worst(row, short), k = 1;
+    while(k < rest.length){ const nr = row.concat(rest[k]), wv = worst(nr, short); if(wv <= best){ row = nr; best = wv; k++; } else break; }
+    const sum = row.reduce((a, r) => a + r.a, 0);
+    if(w >= h){ const cw = sum/h; let cy = y; row.forEach(r => { const rh = r.a/cw; out.push({item:r.it, x, y:cy, w:cw, h:rh}); cy += rh; }); x += cw; w -= cw; }
+    else { const rh = sum/w; let cx = x; row.forEach(r => { const rw = r.a/rh; out.push({item:r.it, x:cx, y, w:rw, h:rh}); cx += rw; }); y += rh; h -= rh; }
+    rest = rest.slice(row.length);
+  }
+  return out;
+}
+function heatColor(c){
+  if(!isNum(c)) return "rgb(65,69,84)";
+  const t = Math.max(-1, Math.min(1, c/3)), n = [65,69,84], to = t >= 0 ? [48,180,90] : [230,55,60], k = Math.abs(t);
+  return `rgb(${n.map((v, j) => Math.round(v + (to[j]-v)*k)).join(",")})`;
+}
+function renderHeat(){
+  const el = $("#heat"); if(!mk.heat || !el) return;
+  const W = el.clientWidth; if(!W) return;
+  const H = W < 600 ? 460 : Math.min(640, Math.round(W*0.52));
+  el.style.height = H + "px"; el.dataset.w = W;
+  const secs = mk.heat.map(s => ({v:s.stocks.reduce((a, x) => a + (x.cap || 0), 0), s})).filter(x => x.v > 0).sort((a, b) => b.v-a.v);
+  let html = "";
+  squarify(secs, 0, 0, W, H).forEach(S => {
+    const head = S.h > 44 && S.w > 60 ? 16 : 0;
+    html += `<div class="hsec" style="left:${S.x}px;top:${S.y}px;width:${S.w}px;height:${S.h}px">${head ? `<div class="hsec-h">${esc(S.item.s.sector)}</div>` : ""}</div>`;
+    const st = S.item.s.stocks.filter(x => x.cap).map(x => ({v:x.cap, x})).sort((a, b) => b.v-a.v);
+    squarify(st, S.x+1, S.y+head+1, S.w-2, S.h-head-2).forEach(T => {
+      const q = T.item.x, show = T.w > 34 && T.h > 24, fs = Math.max(10, Math.min(24, Math.sqrt(T.w*T.h)/5));
+      html += `<button class="htile" data-load="${esc(q.symbol)}" title="${esc(q.name || q.symbol)} · ${fmt(q.price)} · ${isNum(q.change) ? (q.change > 0 ? "+" : "") + q.change.toFixed(2) + "%" : ""}" style="left:${T.x}px;top:${T.y}px;width:${T.w}px;height:${T.h}px;background:${heatColor(q.change)}">${show ? `<b style="font-size:${fs.toFixed(0)}px">${esc(q.symbol)}</b>${T.h > 38 ? `<span>${isNum(q.change) ? (q.change > 0 ? "+" : "") + q.change.toFixed(2) + "%" : ""}</span>` : ""}` : ""}</button>`;
+    });
+  });
+  el.innerHTML = html;
+}
+new ResizeObserver(() => { const el = $("#heat"); if(el && mk.heat && +el.dataset.w !== el.clientWidth) renderHeat(); }).observe($("#heat"));
+async function loadMarkets(){
+  if(!mk.heat || Date.now()-mk.heatT > 60000){
+    try{ mk.heat = await api("/api/heatmap"); mk.heatT = Date.now(); }
+    catch(e){ if(!mk.heat) $("#heat").innerHTML = `<div class="err" style="color:#cfd3dc"><b style="color:#fff">Couldn't load the heatmap</b>${esc(e.message)}</div>`; }
+  }
+  if(tab === "markets") renderHeat();
+  loadScreener(mk.scr);
+}
+async function loadScreener(id){
+  mk.scr = id;
+  document.querySelectorAll("#scr button").forEach(b => b.classList.toggle("on", b.dataset.id === id));
+  const box = $("#scr-table"), cached = mk.lists[id];
+  if(cached && Date.now()-cached.t < 120000) return renderScreener(cached.rows);
+  if(!cached) box.innerHTML = `<div class="err">Loading…</div>`;
+  try{ const rows = await api(`/api/screener?id=${id}&count=25`); mk.lists[id] = {t:Date.now(), rows}; if(mk.scr === id) renderScreener(rows); }
+  catch(e){ if(mk.scr === id) box.innerHTML = `<div class="err"><b>Couldn't load this list</b>${esc(e.message)}</div>`; }
+}
+function renderScreener(rows){
+  $("#scr-table").innerHTML = rows.length ? tbl(["#","Ticker","Company","Price","Change","Volume","Rel volume","Market cap","P/E","52W change"], rows.map((q, k) =>
+    `<tr data-load="${esc(q.symbol)}" tabindex="0"><td class="muted">${k+1}</td><td><b class="num" style="color:var(--accent)">${esc(q.symbol)}</b></td><td style="text-align:left;max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(q.shortName || "")}</td>
+     <td>${fmt(q.regularMarketPrice)}</td><td>${isNum(q.regularMarketChangePercent) ? G(q.regularMarketChangePercent/100) : "—"}</td><td>${big(q.regularMarketVolume)}</td>
+     <td>${q.regularMarketVolume && q.averageDailyVolume3Month ? (q.regularMarketVolume/q.averageDailyVolume3Month).toFixed(2) : "—"}</td><td>${big(q.marketCap)}</td><td>${fmt(q.trailingPE)}</td>
+     <td>${isNum(q.fiftyTwoWeekChangePercent) ? G(q.fiftyTwoWeekChangePercent/100) : "—"}</td></tr>`), "compact screener") : `<div class="err">No stocks match right now.</div>`;
+}
+$("#scr").innerHTML = SCR.map(([id, l]) => `<button data-id="${id}">${l}</button>`).join("");
+$("#scr").addEventListener("click", e => { const b = e.target.closest("button[data-id]"); if(b) loadScreener(b.dataset.id); });
+$("#tab-markets").addEventListener("click", e => { const b = e.target.closest("[data-load]"); if(b){ load(b.dataset.load); setTab("overview"); scrollTo({top:0, behavior:"smooth"}); } });
+$("#tab-markets").addEventListener("keydown", e => { const b = e.target.closest("tr[data-load]"); if(b && e.key === "Enter"){ load(b.dataset.load); setTab("overview"); } });
+
 
 /* ---------- boot ---------- */
 setTab(tab, false);
